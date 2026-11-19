@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daily Planner">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F5EFE3">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Daily Planner</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #F5EFE3; }
+  body { padding-top: env(safe-area-inset-top); box-sizing: border-box; }
+  #app { z-index: 1; position: fixed; left: 0; right: 0; bottom: 0; top: env(safe-area-inset-top); width: 100%; height: calc(100% - env(safe-area-inset-top)); border: 0; background: #F5EFE3; }
+  #msg { font-family: -apple-system, "PingFang TC", sans-serif; color: #2B2925; padding: 48px 28px; line-height: 1.8; display: none; }
+  #msg h1 { font-family: Georgia, "Songti TC", serif; font-size: 26px; margin: 0 0 10px; color: #2F5D50; }
+  #loading { position: fixed; inset: 0; z-index: 2; background: #F5EFE3; display: grid; place-items: center; font-family: Georgia, "Songti TC", serif; color: #8C8475; font-size: 15px; }
+  #loading img { width: 72px; height: 72px; border-radius: 16px; display: block; margin: 0 auto 12px; }
+</style>
+</head>
+<body>
+<div id="loading"><div><img src="apple-touch-icon.png" alt="">翻開手帳中…</div></div>
+<div id="msg"><h1>Daily Planner</h1>還沒有設定網址。請在 Apps Script 編輯器執行 <b>setupKey</b>，把執行記錄裡「#u=…&amp;k=…」那段接在這個網頁網址後面再打開，然後再加入主畫面。</div>
+<script>
+  // 網址片段格式：#u=<Apps Script 部署網址>&k=<密碼>
+  // 片段（# 後面）不會傳到 GitHub 伺服器，只存在你的手機裡
+  (function () {
+    var h = new URLSearchParams(location.hash.slice(1));
+    var u = h.get('u'), k = h.get('k');
+    try {
+      if (u && k) { localStorage.setItem('dp_u', u); localStorage.setItem('dp_k', k); }
+      else { u = localStorage.getItem('dp_u'); k = localStorage.getItem('dp_k'); }
+    } catch (e) {}
+    if (!u || !k) { document.getElementById('loading').style.display = 'none'; document.getElementById('msg').style.display = 'block'; return; }
+    var f = document.createElement('iframe');
+    f.id = 'app';
+    f.src = u + (u.indexOf('?') < 0 ? '?' : '&') + 'k=' + encodeURIComponent(k);
+    f.allow = 'clipboard-write; geolocation';
+    f.onload = function () { setTimeout(function () { document.getElementById('loading').style.display = 'none'; }, 300); };
+    document.body.appendChild(f);
+  })();
+</script>
+</body>
+</html>
