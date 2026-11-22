@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 <title>Daily Planner</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #F5EFE3; }
+  html, body { margin: 0; height: 100%; background: #F5EFE3; overflow: hidden; }
   body { padding-top: env(safe-area-inset-top); box-sizing: border-box; }
   #app { z-index: 1; position: fixed; left: 0; right: 0; bottom: 0; top: env(safe-area-inset-top); width: 100%; height: calc(100% - env(safe-area-inset-top)); border: 0; background: #F5EFE3; }
   #msg { font-family: -apple-system, "PingFang TC", sans-serif; color: #2B2925; padding: 48px 28px; line-height: 1.8; display: none; }
@@ -24,7 +24,7 @@
 </head>
 <body>
 <div id="sa"></div>
-<div id="loading"><div><img src="apple-touch-icon.png" alt="">翻開手帳中…</div></div>
+<div id="loading"><div><img src="apple-touch-icon.png" alt="">翻開手帳中…<div style="font-size:11px;opacity:.5;margin-top:6px;text-align:center">v2</div></div></div>
 <div id="msg"><h1>Daily Planner</h1>還沒有設定網址。請在 Apps Script 編輯器執行 <b>setupKey</b>，把執行記錄裡「#u=…&amp;k=…」那段接在這個網頁網址後面再打開，然後再加入主畫面。</div>
 <script>
   // 網址片段格式：#u=<Apps Script 部署網址>&k=<密碼>
@@ -48,9 +48,11 @@
     var vv = window.visualViewport;
     if (vv) {
       var sa = document.getElementById('sa');
+      var full = Math.max(window.innerHeight, vv.height);       // 沒有鍵盤時的高度
       var fit = function () {
         var top = sa.offsetHeight || 0;
-        var kbd = window.innerHeight - vv.height > 120;   // 視窗明顯變矮＝鍵盤打開
+        if (vv.height > full) full = vv.height;
+        var kbd = full - vv.height > 120;                        // 可視高度明顯變矮＝鍵盤打開
         if (kbd) {
           f.style.top = (vv.offsetTop + top) + 'px';
           f.style.height = (vv.height - top) + 'px';
@@ -62,7 +64,8 @@
       };
       vv.addEventListener('resize', fit);
       vv.addEventListener('scroll', fit);
-      window.addEventListener('orientationchange', function () { setTimeout(fit, 300); });
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', function () { full = 0; setTimeout(function () { full = Math.max(window.innerHeight, vv.height); fit(); }, 400); });
     }
   })();
 </script>
