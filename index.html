@@ -17,11 +17,13 @@
   #app { z-index: 1; position: fixed; left: 0; right: 0; bottom: 0; top: env(safe-area-inset-top); width: 100%; height: calc(100% - env(safe-area-inset-top)); border: 0; background: #F5EFE3; }
   #msg { font-family: -apple-system, "PingFang TC", sans-serif; color: #2B2925; padding: 48px 28px; line-height: 1.8; display: none; }
   #msg h1 { font-family: Georgia, "Songti TC", serif; font-size: 26px; margin: 0 0 10px; color: #2F5D50; }
+  #sa { position: fixed; top: 0; left: 0; width: 0; height: env(safe-area-inset-top); visibility: hidden; pointer-events: none; }
   #loading { position: fixed; inset: 0; z-index: 2; background: #F5EFE3; display: grid; place-items: center; font-family: Georgia, "Songti TC", serif; color: #8C8475; font-size: 15px; }
   #loading img { width: 72px; height: 72px; border-radius: 16px; display: block; margin: 0 auto 12px; }
 </style>
 </head>
 <body>
+<div id="sa"></div>
 <div id="loading"><div><img src="apple-touch-icon.png" alt="">翻開手帳中…</div></div>
 <div id="msg"><h1>Daily Planner</h1>還沒有設定網址。請在 Apps Script 編輯器執行 <b>setupKey</b>，把執行記錄裡「#u=…&amp;k=…」那段接在這個網頁網址後面再打開，然後再加入主畫面。</div>
 <script>
@@ -41,6 +43,27 @@
     f.allow = 'clipboard-write; geolocation';
     f.onload = function () { setTimeout(function () { document.getElementById('loading').style.display = 'none'; }, 300); };
     document.body.appendChild(f);
+
+    // 鍵盤打開時：把網站縮到鍵盤上方，筆記才能往下捲、格式工具列也不會被鍵盤蓋住
+    var vv = window.visualViewport;
+    if (vv) {
+      var sa = document.getElementById('sa');
+      var fit = function () {
+        var top = sa.offsetHeight || 0;
+        var kbd = window.innerHeight - vv.height > 120;   // 視窗明顯變矮＝鍵盤打開
+        if (kbd) {
+          f.style.top = (vv.offsetTop + top) + 'px';
+          f.style.height = (vv.height - top) + 'px';
+          f.style.bottom = 'auto';
+        } else {
+          f.style.top = ''; f.style.height = ''; f.style.bottom = '';
+          if (window.scrollY) window.scrollTo(0, 0);
+        }
+      };
+      vv.addEventListener('resize', fit);
+      vv.addEventListener('scroll', fit);
+      window.addEventListener('orientationchange', function () { setTimeout(fit, 300); });
+    }
   })();
 </script>
 </body>
