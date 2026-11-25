@@ -529,6 +529,7 @@ details.units summary::-webkit-details-marker{display:none}
   --amber:#A87C1C; --amber-soft:#FCEFC9; --shadow:none;
 }}
 html{color-scheme:light}
+html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 h1,h2,h3,.big,.stats .v,.datebox b,#noteTitle,.f .amount{font-weight:400!important}
 .hero{padding:4px 0 14px}
 .hero h1{font-size:25px;text-align:center;margin-top:6px}
@@ -5017,6 +5018,9 @@ $('#noteText').addEventListener('click', e => { const im = e.target.closest && e
 $('#linkTip').addEventListener('pointerdown', e => { if (e.target.closest('button')) e.preventDefault(); });
 $('#linkTip').addEventListener('click', e => { if (e.target.closest('[data-ln="edit"]')) openLinkSheet(); });
 $('#mediaInput').onchange = e => { const pid = PM_UP; PM_UP = null; const files = [...e.target.files]; e.target.value = ''; if (!pid) return toast('請再點一次「＋ 圖片／影片」', 2000); uploadPostMedia(pid, files); };
+/* 不讓整個頁面被放大：擋掉雙指縮放（配衣畫布自己處理）與雙擊放大 */
+document.addEventListener('gesturestart', e => { if (!(e.target.closest && e.target.closest('.fzb'))) e.preventDefault(); });
+document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1 && !(e.target.closest && e.target.closest('.fzb')) && e.cancelable) e.preventDefault(); }, { passive: false });
 $('#ophInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (OUP && files.length) { const o = OUP; OUP = null; uploadOutfitPhotos(o, files); } };
 $('#camInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (CAMW && files.length) { const w = CAMW; CAMW = null; uploadWardPhotos(w, files); } };
 $('#photoInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (SUP) { const x = SUP; SUP = null; uploadShowPhotos(x, files); } else if (NUP) { const n = NUP; NUP = null; uploadNailPhotos(n, files); } else if (WUP) { const w = WUP; WUP = null; uploadWardPhotos(w, files); } else if (TUP) { const t = TUP; TUP = null; uploadTripPhotos(t.tid, t.day, files); } else if (UPLOAD_EVENT) uploadPhotos(UPLOAD_EVENT, files); };

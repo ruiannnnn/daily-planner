@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Daily Planner">
@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 <title>Daily Planner</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #F5EFE3; overflow: hidden; }
+  html, body { margin: 0; height: 100%; background: #F5EFE3; overflow: hidden; touch-action: manipulation; }
   body { padding-top: env(safe-area-inset-top); box-sizing: border-box; }
   #app { z-index: 1; position: fixed; left: 0; right: 0; bottom: 0; top: env(safe-area-inset-top); width: 100%; height: calc(100% - env(safe-area-inset-top)); border: 0; background: #F5EFE3; }
   #msg { font-family: -apple-system, "PingFang TC", sans-serif; color: #2B2925; padding: 48px 28px; line-height: 1.8; display: none; }
@@ -43,6 +43,9 @@
     f.allow = 'clipboard-write; geolocation';
     f.onload = function () { setTimeout(function () { document.getElementById('loading').style.display = 'none'; }, 300); };
     document.body.appendChild(f);
+
+    // 不讓整個畫面被放大（相機修圖畫面自己處理兩指縮放）
+    document.addEventListener('gesturestart', function (e) { if (!(e.target.closest && e.target.closest('#dpcam'))) e.preventDefault(); });
 
     // 拍衣服相機：要用時才載入
     var camP = null;
