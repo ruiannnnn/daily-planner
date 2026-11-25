@@ -24,7 +24,7 @@
 </head>
 <body>
 <div id="sa"></div>
-<div id="loading"><div><img src="apple-touch-icon.png" alt="">翻開手帳中…<div style="font-size:11px;opacity:.5;margin-top:6px;text-align:center">v3</div></div></div>
+<div id="loading"><div><img src="apple-touch-icon.png" alt="">翻開手帳中…<div style="font-size:11px;opacity:.5;margin-top:6px;text-align:center">v4</div></div></div>
 <div id="msg"><h1>Daily Planner</h1>還沒有設定網址。請在 Apps Script 編輯器執行 <b>setupKey</b>，把執行記錄裡「#u=…&amp;k=…」那段接在這個網頁網址後面再打開，然後再加入主畫面。</div>
 <script>
   // 網址片段格式：#u=<Apps Script 部署網址>&k=<密碼>
@@ -44,10 +44,20 @@
     f.onload = function () { setTimeout(function () { document.getElementById('loading').style.display = 'none'; }, 300); };
     document.body.appendChild(f);
 
+    // 拍衣服相機：要用時才載入
+    var camP = null;
+    function loadCam() { if (camP) return camP; camP = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = 'camera.js?v=1'; s.onload = res; s.onerror = function () { camP = null; rej(); }; document.head.appendChild(s); }); return camP; }
+
     // 幫網站保存一份資料快取：下次打開先顯示上次的內容，不用等伺服器
     window.addEventListener('message', function (e) {
       if (!/\.googleusercontent\.com$|^https:\/\/script\.google\.com$/.test(e.origin) || !e.data || !e.data.dp) return;
       if (e.data.dp === 'save' && typeof e.data.data === 'string') { try { localStorage.setItem('dp_cache', e.data.data); } catch (err) {} }
+      else if (e.data.dp === 'hello') { try { e.source.postMessage({ dp: 'hi', cam: 1 }, e.origin); } catch (err) {} }
+      else if (e.data.dp === 'camera') {
+        var src = e.source, org = e.origin, req = e.data;
+        loadCam().then(function () { window.DPCam.open(req, function (res) { try { src.postMessage(Object.assign({ dp: 'camdone', id: req.id }, res), org); } catch (err) {} }); })
+          .catch(function () { try { src.postMessage({ dp: 'camdone', id: req.id, error: '相機載入失敗' }, org); } catch (err) {} });
+      }
       else if (e.data.dp === 'load') { var c = null; try { c = localStorage.getItem('dp_cache'); } catch (err) {} try { e.source.postMessage({ dp: 'cache', data: c }, e.origin); } catch (err) {} }
     });
 

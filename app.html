@@ -140,6 +140,9 @@ svg.spark{width:100%;height:70px;display:block}
 .wph-none span{background:rgba(255,252,246,.85);color:#3E3A39;font-size:11px;padding:2px 8px;border-radius:99px}
 .witem .wname{font-size:13px;margin-top:5px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .witem .wmeta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;overflow:hidden;white-space:nowrap}
+.wflag.pend{left:auto;right:6px;background:#E9BE5A;color:#3a2a00;font-weight:700}
+.pgrid .ph .pendlab{position:absolute;left:4px;top:4px;background:#E9BE5A;color:#3a2a00;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px}
+.wpend{background:#FBF1D9;border:1px solid #EAD39A;border-radius:12px;padding:9px 11px;font-size:12.5px;line-height:1.6;margin:-6px 0 12px;color:#5a4a1e}
 .wflag{position:absolute;left:6px;top:6px;background:rgba(43,41,37,.75);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px}
 .wdot{box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);flex:none}
 [data-chips="顏色"] .dot{box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
@@ -690,6 +693,7 @@ setTimeout(function(){ if(!window.__booted) window.__bootErr('等候超過 25 �
   <div class="vw-stage"><button class="vw-nav" data-act="vw-prev">‹</button><img id="vwImg" alt=""><button class="vw-nav" data-act="vw-next">›</button></div>
   <div id="vwCap" class="vw-cap"></div></div>
 <input type="file" id="photoInput" accept="image/*" multiple class="vh-file" tabindex="-1" aria-hidden="true">
+<input type="file" id="camInput" accept="image/*" capture="environment" class="vh-file" tabindex="-1" aria-hidden="true">
 <input type="file" id="mediaInput" accept="image/*,video/*" multiple class="vh-file" tabindex="-1" aria-hidden="true">
 <div id="toast"></div>
 
@@ -2935,6 +2939,28 @@ function loadWardPhotos(){
 }
 const clothPhotos = id => (WPH||[]).filter(p=>p['衣物ID']===id).sort((a,b)=>(b['說明']==='封面')-(a['說明']==='封面') || String(a['上傳時間']).localeCompare(String(b['上傳時間'])));
 const clothCover = id => clothPhotos(id)[0];
+/* 最新的一張照片是「待去背」的原圖 → 這件衣服還沒換成去背版 */
+const clothPending = id => { const ps = (WPH||[]).filter(p=>p['衣物ID']===id).sort((a,b)=>String(b['上傳時間']).localeCompare(String(a['上傳時間']))); return !!(ps[0] && ps[0]['說明']==='待去背'); };
+/* 拍照去背：相機在主畫面外殼那層（iPhone 不讓網站這層開相機） */
+let CAM_OK = false, CAMW = null; const CAM_REQ = {};
+try { window.top.postMessage({dp:'hello'}, '*'); } catch(e) {}
+window.addEventListener('message', e => { const m = e.data; if (!m || !m.dp) return;
+  if (m.dp === 'hi' && m.cam) CAM_OK = true;
+  if (m.dp === 'camdone') { const id = CAM_REQ[m.id]; delete CAM_REQ[m.id]; if (!id || m.cancel) return; if (m.error) return toast(m.error, 2500); camResult(id, m); } });
+function camOpen(id){ const rid = 'c' + Date.now(); CAM_REQ[rid] = id; const c = clothes().find(x=>x.ID===id);
+  try { window.top.postMessage({dp:'camera', id: rid, cat: c ? c['分類'] : ''}, '*'); } catch(e) { toast('打不開相機', 2000); } }
+function dataToFile(d, name){ const [h, b] = d.split(','), mime = (h.match(/data:([^;]+)/)||[])[1] || 'image/jpeg', bin = atob(b), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new File([u], name, {type: mime}); }
+async function camResult(id, m){
+  if (m.kind === 'cut') return uploadWardPhotos(id, [dataToFile(m.data, 'cloth.png')]);
+  if (!m.pending) return uploadWardPhotos(id, [dataToFile(m.data, 'cloth.jpg')]);
+  try { toast('上傳原圖…'); if (!WPH) WPH = [];
+    const f = dataToFile(m.data, 'cloth.jpg'), thumb = await makeThumb(f, true);
+    WPH.push(await call('uploadPhoto2', '衣櫃照片', {'衣物ID': id, '說明': '待去背'}, m.data.split(',')[1], thumb, 'cloth-raw.jpg'));
+    toast('已存原圖，標記「待去背」', 1800);
+  } catch(e) { toast('上傳失敗：' + String(e && e.message || e).replace(/^Error:\s*/,''), 6000); }
+  if (st.tab==='more' && st.more==='衣櫃') { const l = $('#ward-list'); if (l) l.innerHTML = wardList(); }
+  if (CUR_CLOTH === id && $('#sheet').classList.contains('show')) viewCloth(id);
+}
 const wcolBg = c => WCOLORS[c] || '#E4DCD2';
 const wDot = (c, s) => c ? `<i class="dot wdot" style="background:${wcolBg(c)};width:${s||9}px;height:${s||9}px"></i>` : '';
 function clothImg(r, cls){
@@ -2970,7 +2996,7 @@ function wardList(){
   if (st.wcat!=='全部') all = all.filter(r=>r['分類']===st.wcat);
   if (st.wcol!=='全部') all = all.filter(r=>r['顏色']===st.wcol);
   all = all.filter(r=>wardMatches(r, q));
-  const card = r => `<button class="witem" data-act="wview" data-id="${esc(r.ID)}"><div class="wimg">${clothImg(r)}${r['狀態']==='想淘汰'?'<span class="wflag">想淘汰</span>':''}</div><div class="wname">${esc(r['名稱'])}</div><div class="wmeta">${wDot(r['顏色'],8)}${esc([r['顏色'],r['品牌']].filter(Boolean).join(' · '))}</div></button>`;
+  const card = r => `<button class="witem" data-act="wview" data-id="${esc(r.ID)}"><div class="wimg">${clothImg(r)}${r['狀態']==='想淘汰'?'<span class="wflag">想淘汰</span>':''}${clothPending(r.ID)?'<span class="wflag pend">待去背</span>':''}</div><div class="wname">${esc(r['名稱'])}</div><div class="wmeta">${wDot(r['顏色'],8)}${esc([r['顏色'],r['品牌']].filter(Boolean).join(' · '))}</div></button>`;
   const cats = st.wcat==='全部' ? W_CATS.filter(c=>all.some(r=>r['分類']===c)).concat(all.some(r=>!W_CATS.includes(r['分類']))?['其他']:[]) : [st.wcat];
   let html = '';
   if (!all.length) html = `<section class="card"><div class="empty">${clothes().length ? (q ? `衣櫃裡沒有符合「${esc(q)}」的衣物，看起來可以買！` : '這個分類還沒有衣物。') : '還沒有衣物，按右下角 + 新增第一件。'}</div></section>`;
@@ -3003,7 +3029,6 @@ function vWardrobe(){
   return head + `<div class="search">${icon('<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',17)}<input id="wardSearch" type="search" placeholder="買之前先查：例如 黑色 褲子、條紋" value="${esc(st.wq)}"></div>
   ${cats.length>1?`<div class="seg">${['全部',...cats].map(x=>`<button class="${st.wcat===x?'on':''}" data-act="wcat" data-v="${esc(x)}">${esc(x)}${x!=='全部'?` <span class="muted" style="font-size:11px">${live.filter(r=>r['分類']===x).length}</span>`:''}</button>`).join('')}</div>`:''}
   ${cols.length>1?`<div class="wcols">${['全部',...cols].map(c=>`<button class="${st.wcol===c?'on':''}" data-act="wcol" data-v="${esc(c)}" title="${esc(c)}">${c==='全部'?'全部顏色':wDot(c,14)+esc(c)}</button>`).join('')}</div>`:''}
-  <div style="text-align:center;margin:-4px 0 10px"><button class="btn" data-act="camtest" style="font-size:12.5px">📷 測試相機（暫時的按鈕）</button></div>
   <div id="ward-list">${wardList()}</div>`;
 }
 function viewCloth(id){
@@ -3014,7 +3039,9 @@ function viewCloth(id){
   const info = [['品牌',r['品牌']],['尺寸',r['尺寸']],['價格',r['價格']!==''&&r['價格']!=null?money(num(r['價格'])):''],['購買日期',r['購買日期']?nice(r['購買日期']):''],['存放位置',r['存放位置']],['備註',r['備註']]].filter(x=>x[1]);
   openSheet(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><h2 style="margin:0;font-size:19px">${esc(r['名稱'])}</h2></div>
     <div class="small muted" style="margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">${esc(r['分類']||'')}${r['顏色']?' · '+wDot(r['顏色'],10)+esc(r['顏色']):''}${r['季節']?' · '+esc(r['季節']):''}${r['狀態']?' · '+esc(r['狀態']):''}</div>
-    <div class="pgrid" id="wphGrid" style="border-radius:10px;margin-bottom:14px">${ps.map(p=>`<div class="ph" data-act="wph" data-id="${esc(p.ID)}">${p['縮圖']?`<img src="${esc(p['縮圖'])}" alt="">`:''}</div>`).join('')}
+    ${clothPending(id)?`<div class="wpend"><b>這件還沒去背</b>：用美圖秀秀去背後存成 PNG，在相簿長按圖片「拷貝」，再到下面「長按這裡貼上」，會自動換成封面。</div>`:''}
+    <div class="pgrid" id="wphGrid" style="border-radius:10px;margin-bottom:14px">${ps.map(p=>`<div class="ph" data-act="wph" data-id="${esc(p.ID)}">${p['縮圖']?`<img src="${esc(p['縮圖'])}" alt="">`:''}${p['說明']==='待去背'?'<span class="pendlab">待去背</span>':''}</div>`).join('')}
+      <label class="addph" for="camInput" data-act="w-cam" data-id="${esc(id)}"><span style="font-size:20px;line-height:1">📷</span>拍照去背</label>
       <label class="addph" for="photoInput" data-act="w-addph" data-id="${esc(id)}"><span style="font-size:22px;line-height:1">＋</span>${ps.length?'再加照片':'加照片'}</label>
       <div class="addph pastebox" contenteditable="true" inputmode="none" autocorrect="off" spellcheck="false" data-paste="${esc(id)}">長按這裡<br>貼上</div></div>
     ${!WPH?'<div class="small muted" style="margin:-8px 0 10px">照片載入中…</div>':''}
@@ -3152,7 +3179,9 @@ async function uploadWardPhotos(id, files){
       const full = png ? await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(f); }) : await resizeImage(f, 1600, 0.85);
       const thumb = await makeThumb(f, true);
       const ph = await call('uploadPhoto2', '衣櫃照片', {'衣物ID': id}, full.split(',')[1], thumb, (list[i].name || 'cloth').replace(/\.[^.]+$/,'') + (png ? '.png' : '.jpg'));
+      const wasPend = clothPending(id);
       WPH.push(ph); if (png) fzCutStore(ph['檔案ID'], full);
+      if (png && wasPend) { WPH.forEach(x => { if (x['衣物ID']===id) x['說明'] = x.ID===ph.ID ? '封面' : (x['說明']==='封面' ? '' : x['說明']); }); call('setPhotoCover', '衣櫃照片', ph.ID, '衣物ID').catch(()=>{}); }
       okN++;
     } catch(e) { err = String(e && e.message || e).replace(/^Error:\s*/,''); break; }
   }
@@ -3502,26 +3531,6 @@ function dmCfgSheet(){
   openSheet(`<h2>要配哪些？</h2><div class="small muted" style="margin:-4px 0 10px">上衣那排也包含洋裝</div>
     <div class="chips" data-chips="dmrows" data-multi="1">${DM_ROWS.map(([r])=>`<button type="button" data-v="${r}" class="${on.includes(r)?'on':''}">${r}</button>`).join('')}</div>
     <div class="actions"><button type="button" class="save" data-act="dmcfgsave">完成</button></div>`);
-}
-/* ---------- 暫時：測試這支手機能不能在網站裡開相機、叫出分享選單 ---------- */
-function camLog(t){ const b = $('#camLog'); if (b) b.innerHTML += t + '<br>'; }
-async function camTest(){
-  openSheet(`<h2>相機測試</h2><div style="background:#222;border-radius:12px;overflow:hidden;aspect-ratio:3/4;margin-bottom:10px"><video id="camV" playsinline muted autoplay style="width:100%;height:100%;object-fit:cover"></video></div>
-    <div id="camLog" class="small" style="line-height:1.8"></div>
-    <div class="actions"><button type="button" class="del" style="color:var(--ink);border-color:var(--line)" data-act="camshare">測試下載（分享選單）</button><button type="button" class="save" data-act="camclose">關閉</button></div>`);
-  camLog('在外殼裡面：' + (window.top !== window ? '是' : '否'));
-  camLog('有相機功能：' + (navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? '有' : '沒有'));
-  camLog('分享選單：' + (navigator.share ? '有' : '沒有') + '｜可分享檔案：' + (navigator.canShare ? (navigator.canShare({files:[new File(['x'], 'a.png', {type:'image/png'})]}) ? '可以' : '不行') : '不確定'));
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false});
-    window.__camStream = s; $('#camV').srcObject = s; camLog('<b style="color:var(--green)">✅ 相機可以在網站裡打開</b>');
-  } catch(e) { camLog('<b style="color:var(--red)">❌ 打不開相機：' + esc(e.name || '') + ' ' + esc(e.message || String(e)) + '</b>'); }
-}
-async function camShareTest(){
-  try { const c = document.createElement('canvas'); c.width = c.height = 200; const g = c.getContext('2d'); g.fillStyle = '#F0A497'; g.fillRect(0,0,200,200); g.fillStyle = '#3E3A39'; g.font = 'bold 28px sans-serif'; g.fillText('測試', 70, 110);
-    const blob = await new Promise(r => c.toBlob(r, 'image/png')); const f = new File([blob], '測試.png', {type:'image/png'});
-    await navigator.share({files:[f]}); camLog('<b style="color:var(--green)">✅ 分享選單可以用</b>');
-  } catch(e) { camLog('<b style="color:var(--red)">❌ 分享選單：' + esc(e.name || '') + ' ' + esc(e.message || String(e)) + '</b>'); }
 }
 /* ---------- 衣物照片：去背圖自動對齊、一般照片用虛線模板裁切 ---------- */
 const CROP_TPL = {
@@ -4689,9 +4698,7 @@ document.addEventListener('click', e => {
     else if (d.act==='wtab') { st.wd=d.v; render(); }
     else if (d.act==='wcat') { st.wcat=d.v; st.wcol='全部'; render(); }
     else if (d.act==='wcol') { st.wcol=d.v; render(); }
-    else if (d.act==='camtest') camTest();
-    else if (d.act==='camshare') camShareTest();
-    else if (d.act==='camclose') { if (window.__camStream) window.__camStream.getTracks().forEach(t=>t.stop()); window.__camStream = null; closeSheet(); }
+    else if (d.act==='w-cam') { if (CAM_OK) { e.preventDefault(); camOpen(id); } else CAMW = id; }
     else if (d.act==='wold') { st.wold=!st.wold; const l=$('#ward-list'); if (l) l.innerHTML=wardList(); }
     else if (d.act==='wview') viewCloth(id);
     else if (d.act==='wedit') openForm('衣櫃', id, null, () => { if (clothes().some(x=>x.ID===id)) viewCloth(id); });
@@ -4954,6 +4961,7 @@ $('#noteText').addEventListener('click', e => { const im = e.target.closest && e
 $('#linkTip').addEventListener('pointerdown', e => { if (e.target.closest('button')) e.preventDefault(); });
 $('#linkTip').addEventListener('click', e => { if (e.target.closest('[data-ln="edit"]')) openLinkSheet(); });
 $('#mediaInput').onchange = e => { const pid = PM_UP; PM_UP = null; const files = [...e.target.files]; e.target.value = ''; if (!pid) return toast('請再點一次「＋ 圖片／影片」', 2000); uploadPostMedia(pid, files); };
+$('#camInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (CAMW && files.length) { const w = CAMW; CAMW = null; uploadWardPhotos(w, files); } };
 $('#photoInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (SUP) { const x = SUP; SUP = null; uploadShowPhotos(x, files); } else if (NUP) { const n = NUP; NUP = null; uploadNailPhotos(n, files); } else if (WUP) { const w = WUP; WUP = null; uploadWardPhotos(w, files); } else if (TUP) { const t = TUP; TUP = null; uploadTripPhotos(t.tid, t.day, files); } else if (UPLOAD_EVENT) uploadPhotos(UPLOAD_EVENT, files); };
 $('#scrim').onclick = () => { closeSheet(); if(askCb){ askCb(false); askCb=null; } };
 $('#fab').onclick = () => {
