@@ -218,6 +218,7 @@ svg.spark{width:100%;height:70px;display:block}
 .dmmode .mseg{display:inline-flex;background:var(--line);border-radius:99px;padding:3px}
 .dmmode .mseg button{padding:5px 16px;border-radius:99px;font-size:13.5px;color:var(--muted)}
 .dmmode .mseg button.on{background:var(--card);color:var(--ink);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.fzwrap{position:relative;width:min(100%, max(240px, calc((100vh - 440px) * .8)));width:min(100%, max(240px, calc((100dvh - 440px) * .8)));margin:0 auto}
 .fzb{position:relative;width:100%;aspect-ratio:4/5;background:#FFFFFF;border:1px solid var(--line);border-radius:18px;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
 .fz{position:absolute;touch-action:none;-webkit-touch-callout:none;transform-origin:50% 50%}
 .fz img{transition:opacity .15s}
@@ -229,8 +230,10 @@ svg.spark{width:100%;height:70px;display:block}
 .wo-board .btn{position:absolute;right:8px;bottom:8px;font-size:12.5px;padding:4px 10px;background:var(--card)}
 .fzmini{width:96px;flex:none;aspect-ratio:4/5;border-radius:10px}
 .fzb-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#8C8475;font-size:13.5px;line-height:1.8;padding:20px;pointer-events:none}
-.fztools{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 0}
-.fztools .btn{display:inline-flex;align-items:center;gap:4px;font-size:13px;padding:5px 11px}
+.fztools{position:absolute;left:6px;right:6px;bottom:6px;z-index:999;display:flex;gap:4px;justify-content:center;background:rgba(255,252,246,.94);border:1px solid var(--line);border-radius:14px;padding:5px;box-shadow:0 4px 14px rgba(0,0,0,.1)}
+.fztools button{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:10.5px;color:var(--ink);padding:3px 0;border-radius:9px;min-width:0}
+.fztools button:active{background:var(--line)}
+.fztools button svg{width:18px;height:18px}
 .fzpick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-height:52vh;overflow:auto;padding:2px}
 .fzpick button{position:relative;background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:6px;aspect-ratio:1;display:grid;place-items:center;overflow:hidden}
 .fzpick button img{max-width:100%;max-height:100%;object-fit:contain}
@@ -3301,9 +3304,9 @@ function freeView(){
   setTimeout(fzInit, 0);
   const sel = FZ_SEL >= 0 && L[FZ_SEL];
   return `<div class="dmbar"><button class="btn" data-act="fzpick">${icon('<path d="M12 5v14M5 12h14"/>',15)} 加衣服</button><button class="btn" data-act="fzfrom">${icon('<path d="M4 7h16M4 12h16M4 17h16"/>',15)} 帶入滑動的</button><span style="flex:1"></span>${L.length?`<button class="btn" data-act="fzclear">清空</button>`:''}</div>
-    <div class="fzb" id="fzBoard">${L.map(fzItemHtml).join('')}${L.length?'':'<div class="fzb-empty">按「加衣服」挑幾件放上來<br>單指拖曳移動・兩指捏合縮放、轉動</div>'}</div>
-    <div class="fztools" id="fzTools" style="${sel?'':'display:none'}"><button class="btn" data-act="fzsize" data-v="0.85">${icon('<path d="M5 12h14"/>',14)} 縮小</button><button class="btn" data-act="fzsize" data-v="1.18">${icon('<path d="M12 5v14M5 12h14"/>',14)} 放大</button><button class="btn" data-act="fzfront">移到最上層</button><button class="btn" data-act="fzback">移到最下層</button><button class="btn" data-act="fzdel" style="color:var(--red)">拿掉</button></div>
-    <div class="small muted" id="dmStatus" style="text-align:center;margin:10px 0 8px">${L.length ? dmStatus() : '點一下衣服可以選取，下方會出現調整按鈕'}</div>
+    <div class="fzwrap"><div class="fzb" id="fzBoard">${L.map(fzItemHtml).join('')}${L.length?'':'<div class="fzb-empty">按「加衣服」挑幾件放上來<br>單指拖曳移動・兩指捏合縮放、轉動</div>'}</div>
+    <div class="fztools" id="fzTools" style="${sel?'':'display:none'}"><button data-act="fzsize" data-v="0.85">${icon('<circle cx="11" cy="11" r="7"/><path d="M8 11h6M20 20l-4-4"/>',18)}縮小</button><button data-act="fzsize" data-v="1.18">${icon('<circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M20 20l-4-4"/>',18)}放大</button><button data-act="fzfront">${icon('<path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4" opacity=".4"/><path d="M4 16l8 4 8-4" opacity=".4"/>',18)}最上層</button><button data-act="fzback">${icon('<path d="M12 4l8 4-8 4-8-4z" opacity=".4"/><path d="M4 12l8 4 8-4" opacity=".4"/><path d="M4 16l8 4 8-4"/>',18)}最下層</button><button data-act="fzdel" style="color:var(--red)">${icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',18)}拿掉</button><button data-act="fzdesel">${icon('<path d="M5 12l5 5 9-10"/>',18)}完成</button></div></div>
+    <div class="small muted" id="dmStatus" style="text-align:center;margin:10px 0 8px">${L.length ? dmStatus() : '點一下衣服可以選取，畫布下方會出現調整按鈕'}</div>
     <div style="display:flex;gap:8px"><button class="btn" style="flex:1" data-act="dmwear">今天就穿這套</button><button class="btn solid" style="flex:1" data-act="dmsave">存成穿搭</button></div>`;
 }
 function fzParse(o){ try { const a = JSON.parse(String(o && o['版面'] || '')); return Array.isArray(a) ? a : null; } catch(e) { return null; } }
@@ -4640,6 +4643,7 @@ document.addEventListener('click', e => {
     else if (d.act==='dmshuffle') dmShuffle();
     else if (d.act==='dmmode') { try { localStorage.setItem('dmMode', d.v); } catch(e){} FZ_SEL = -1; render(); }
     else if (d.act==='fzpick') fzPickSheet();
+    else if (d.act==='fzdesel') fzSelect(-1);
     else if (d.act==='fzcat') fzPickSheet(d.v);
     else if (d.act==='fztog') { const L = fzLoad(), i = L.findIndex(x=>x.id===d.id); if (i >= 0) { L.splice(i,1); fzSave(); el.classList.remove('on'); } else { fzAdd(d.id, true); el.classList.add('on'); } FZ_SEL = -1; }
     else if (d.act==='fzpickdone') { closeSheet(); render(); }
