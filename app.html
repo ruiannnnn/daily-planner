@@ -3003,6 +3003,7 @@ function vWardrobe(){
   return head + `<div class="search">${icon('<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',17)}<input id="wardSearch" type="search" placeholder="買之前先查：例如 黑色 褲子、條紋" value="${esc(st.wq)}"></div>
   ${cats.length>1?`<div class="seg">${['全部',...cats].map(x=>`<button class="${st.wcat===x?'on':''}" data-act="wcat" data-v="${esc(x)}">${esc(x)}${x!=='全部'?` <span class="muted" style="font-size:11px">${live.filter(r=>r['分類']===x).length}</span>`:''}</button>`).join('')}</div>`:''}
   ${cols.length>1?`<div class="wcols">${['全部',...cols].map(c=>`<button class="${st.wcol===c?'on':''}" data-act="wcol" data-v="${esc(c)}" title="${esc(c)}">${c==='全部'?'全部顏色':wDot(c,14)+esc(c)}</button>`).join('')}</div>`:''}
+  <div style="text-align:center;margin:-4px 0 10px"><button class="btn" data-act="camtest" style="font-size:12.5px">📷 測試相機（暫時的按鈕）</button></div>
   <div id="ward-list">${wardList()}</div>`;
 }
 function viewCloth(id){
@@ -3501,6 +3502,26 @@ function dmCfgSheet(){
   openSheet(`<h2>要配哪些？</h2><div class="small muted" style="margin:-4px 0 10px">上衣那排也包含洋裝</div>
     <div class="chips" data-chips="dmrows" data-multi="1">${DM_ROWS.map(([r])=>`<button type="button" data-v="${r}" class="${on.includes(r)?'on':''}">${r}</button>`).join('')}</div>
     <div class="actions"><button type="button" class="save" data-act="dmcfgsave">完成</button></div>`);
+}
+/* ---------- 暫時：測試這支手機能不能在網站裡開相機、叫出分享選單 ---------- */
+function camLog(t){ const b = $('#camLog'); if (b) b.innerHTML += t + '<br>'; }
+async function camTest(){
+  openSheet(`<h2>相機測試</h2><div style="background:#222;border-radius:12px;overflow:hidden;aspect-ratio:3/4;margin-bottom:10px"><video id="camV" playsinline muted autoplay style="width:100%;height:100%;object-fit:cover"></video></div>
+    <div id="camLog" class="small" style="line-height:1.8"></div>
+    <div class="actions"><button type="button" class="del" style="color:var(--ink);border-color:var(--line)" data-act="camshare">測試下載（分享選單）</button><button type="button" class="save" data-act="camclose">關閉</button></div>`);
+  camLog('在外殼裡面：' + (window.top !== window ? '是' : '否'));
+  camLog('有相機功能：' + (navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? '有' : '沒有'));
+  camLog('分享選單：' + (navigator.share ? '有' : '沒有') + '｜可分享檔案：' + (navigator.canShare ? (navigator.canShare({files:[new File(['x'], 'a.png', {type:'image/png'})]}) ? '可以' : '不行') : '不確定'));
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false});
+    window.__camStream = s; $('#camV').srcObject = s; camLog('<b style="color:var(--green)">✅ 相機可以在網站裡打開</b>');
+  } catch(e) { camLog('<b style="color:var(--red)">❌ 打不開相機：' + esc(e.name || '') + ' ' + esc(e.message || String(e)) + '</b>'); }
+}
+async function camShareTest(){
+  try { const c = document.createElement('canvas'); c.width = c.height = 200; const g = c.getContext('2d'); g.fillStyle = '#F0A497'; g.fillRect(0,0,200,200); g.fillStyle = '#3E3A39'; g.font = 'bold 28px sans-serif'; g.fillText('測試', 70, 110);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png')); const f = new File([blob], '測試.png', {type:'image/png'});
+    await navigator.share({files:[f]}); camLog('<b style="color:var(--green)">✅ 分享選單可以用</b>');
+  } catch(e) { camLog('<b style="color:var(--red)">❌ 分享選單：' + esc(e.name || '') + ' ' + esc(e.message || String(e)) + '</b>'); }
 }
 /* ---------- 衣物照片：去背圖自動對齊、一般照片用虛線模板裁切 ---------- */
 const CROP_TPL = {
@@ -4668,6 +4689,9 @@ document.addEventListener('click', e => {
     else if (d.act==='wtab') { st.wd=d.v; render(); }
     else if (d.act==='wcat') { st.wcat=d.v; st.wcol='全部'; render(); }
     else if (d.act==='wcol') { st.wcol=d.v; render(); }
+    else if (d.act==='camtest') camTest();
+    else if (d.act==='camshare') camShareTest();
+    else if (d.act==='camclose') { if (window.__camStream) window.__camStream.getTracks().forEach(t=>t.stop()); window.__camStream = null; closeSheet(); }
     else if (d.act==='wold') { st.wold=!st.wold; const l=$('#ward-list'); if (l) l.innerHTML=wardList(); }
     else if (d.act==='wview') viewCloth(id);
     else if (d.act==='wedit') openForm('衣櫃', id, null, () => { if (clothes().some(x=>x.ID===id)) viewCloth(id); });
