@@ -284,6 +284,23 @@ svg.spark{width:100%;height:70px;display:block}
 .durs button.on{background:var(--green);border-color:var(--green);color:#fff}
 .tl-nav{display:flex;align-items:center;gap:8px;margin:-2px 2px 12px}
 .tl-nav>button[data-dir="-1"],.tl-nav>button[data-dir="1"]{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);font-size:18px;display:grid;place-items:center}
+.wk{display:flex;align-items:center;gap:4px;margin:-2px 0 12px}
+.wk>.wk-arr{width:28px;height:44px;border:0;background:none;font-size:20px;color:var(--muted);flex:none}
+.wk-days{flex:1;display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.wk-d{border:1.5px solid transparent;background:none;border-radius:14px;padding:5px 0 6px;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--ink);transition:background .15s,border-color .15s}
+.wk-d small{font-size:11px;color:var(--muted)}.wk-d.we small{color:#B5523B}
+.wk-d b{font-size:16px;font-variant-numeric:tabular-nums;line-height:1.3}
+.wk-d i{width:5px;height:5px;border-radius:50%;background:transparent}.wk-d i.has{background:var(--muted);opacity:.55}
+.wk-d.today:not(.on) b{color:var(--red)}
+.wk-d.on{background:var(--coral);border:2.5px solid #3E3A39}.wk-d.on b,.wk-d.on small{color:var(--ink)}
+.wk-d.drop{background:color-mix(in srgb,var(--green) 22%,var(--card));border-color:var(--green)}
+.wk-sub{display:flex;justify-content:space-between;align-items:center;margin:-6px 4px 12px;font-size:12.5px;color:var(--muted)}
+.wk-sub .btn{padding:2px 10px;font-size:12px}
+.tl-untimed .row.ud-can{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.tl-untimed .row.ud-src{opacity:.35}
+.ud-ghost{position:fixed;z-index:60;pointer-events:none;border-radius:8px;background:color-mix(in srgb,var(--c) 22%,var(--card));border-left:4px solid var(--c);padding:4px 8px;box-shadow:0 10px 24px rgba(0,0,0,.22);font-size:13px;font-weight:700;color:color-mix(in srgb,var(--c) 65%,var(--ink));overflow:hidden;transition:height .12s}
+.ud-ghost .tl-badge{top:4px}
+.tl-drop{position:absolute;left:48px;right:4px;border-radius:8px;border:2px dashed var(--c);background:color-mix(in srgb,var(--c) 10%,transparent);pointer-events:none;z-index:2}
 .tl-date{flex:1;text-align:center;line-height:1.3}.tl-date b{font-family:var(--serif);font-size:17px;display:block}.tl-date span{font-size:12px;color:var(--muted)}
 .tl-card{padding:12px 8px 12px 6px}
 .tl{position:relative}
@@ -1975,10 +1992,13 @@ function vTimeline(){
   const nowMin = new Date().getHours()*60 + new Date().getMinutes();
   const top = m => (m - startH*60) * TL_PX / 60;
   const busy = timed.reduce((a,it)=>a+(it.t-it.s),0);
-  return `<div class="tl-nav"><button data-act="tlday" data-dir="-1" aria-label="前一天">‹</button><div class="tl-date"><b>${niceW(day)}</b><span>${day===T?'今天':rel(diff(day,T))}</span></div><button data-act="tlday" data-dir="1" aria-label="後一天">›</button>${day!==T?'<button class="btn" data-act="tlday" data-dir="0">今天</button>':''}</div>
-  ${untimed.length ? `<div class="group-h"><span>整天／還沒排時間</span><span>${untimed.length}</span></div><section class="card tl-untimed">${untimed.map(evRow).join('')}<div class="small muted" style="margin-top:6px">點進去填上開始時間，就會排進下面的時間軸</div></section>` : ''}
+  const wd0 = (toD(day).getDay() + 6) % 7, ws = addDays(day, -wd0), wdays = Array.from({length:7}, (_, i) => addDays(ws, i));
+  const wkEv = {}; calEvents(ws, addDays(ws, 6)).forEach(e => { wkEv[e.d] = 1; });
+  return `<div class="wk"><button class="wk-arr" data-act="tlday" data-dir="-7" aria-label="上一週">‹</button><div class="wk-days">${wdays.map((d, i) => `<button class="wk-d ${d===day?'on':''} ${d===T?'today':''} ${i>4?'we':''}" data-act="tlpick" data-d="${d}"><small>${'一二三四五六日'[i]}</small><b>${+d.slice(8)}</b><i class="${wkEv[d]?'has':''}"></i></button>`).join('')}</div><button class="wk-arr" data-act="tlday" data-dir="7" aria-label="下一週">›</button></div>
+  <div class="wk-sub"><span>${niceW(day)} · ${day===T?'今天':rel(diff(day,T))}</span>${day!==T?'<button class="btn" data-act="tlday" data-dir="0">回今天</button>':''}</div>
+  ${untimed.length ? `<div class="group-h"><span>整天／還沒排時間</span><span>${untimed.length}</span></div><section class="card tl-untimed">${untimed.map(e => { const ok = !e.virtual && !e.done && (e.src==='待辦行程' || e.src==='工作事項'); return ok ? evRow(e).replace('<div class="row ', `<div data-ud="${e.src}" data-uid="${esc(e.id)}" data-utitle="${esc(e.title)}" data-uc="${tagColor(e.tag)}" class="ud-can row `) : evRow(e); }).join('')}<div class="small muted" style="margin-top:6px">按住拖到下面的時間軸就能排時間，拖到上面的日期可以改天</div></section>` : ''}
   <div class="group-h"><span>時間軸</span><span>${timed.length ? timed.length+' 項 · 已排 '+(busy>=60?Math.floor(busy/60)+' 小時':'')+(busy%60?' '+busy%60+' 分':'') : '點空白處新增'}</span></div>
-  <section class="card tl-card"><div class="tl" style="height:${hours.length*TL_PX}px">
+  <section class="card tl-card"><div class="tl" data-sh="${startH}" style="height:${hours.length*TL_PX}px">
     ${hours.map(h => `<div class="tl-h" style="top:${top(h*60)}px"><span>${pad(h)}:00</span></div><button class="tl-slot" data-act="tlnew" data-t="${pad(h)}:00" style="top:${top(h*60)}px"></button><button class="tl-slot" data-act="tlnew" data-t="${pad(h)}:30" style="top:${top(h*60+30)}px"></button>`).join('')}
     ${timed.map(it => { const e = it.e, c = tagColor(e.tag), h = Math.max(24, (it.t-it.s)*TL_PX/60 - 2), w = 100/it.cols;
       const canDrag = !e.virtual && ['待辦行程','工作事項','韋基行程','追星紀錄'].includes(e.src);
@@ -2045,6 +2065,80 @@ function vTimeline(){
   document.addEventListener('touchmove', e => { if (P && P.active && e.cancelable) e.preventDefault(); }, { passive: false });
   document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.tl-ev')) e.preventDefault(); });
   document.addEventListener('click', e => { if (suppressClick && e.target.closest && e.target.closest('.tl-ev')) { e.stopPropagation(); e.preventDefault(); } }, true);
+})();
+
+/* 還沒排時間的待辦：按住拖到時間軸排時間，或拖到上方週列的某一天改日期 */
+(function initUntimedDrag(){
+  const SNAP = 15, HOLD = 300, LEN = 60;
+  let P = null, suppress = false, raf = 0;
+  const tlRect = () => { const tl = document.querySelector('.tl'); return tl ? { tl, r: tl.getBoundingClientRect(), sh: +tl.dataset.sh || 0 } : null; };
+  function minuteAt(y){ const t = tlRect(); if (!t) return null; const r = t.r;
+    if (y < r.top - 10 || y > r.bottom) return null;
+    let m = t.sh*60 + (y - r.top - 14) * 60 / TL_PX; m = Math.round(m / SNAP) * SNAP;
+    return Math.max(t.sh*60, Math.min(24*60 - LEN, m)); }
+  function dayAt(x, y){ const el = document.elementFromPoint(x, y); const b = el && el.closest && el.closest('.wk-d'); return b ? b.dataset.d : null; }
+  function begin(){
+    if (!P) return; P.active = true; P.row.classList.add('ud-src');
+    const g = document.createElement('div'); g.className = 'ud-ghost'; g.style.setProperty('--c', P.c);
+    g.style.width = Math.min(260, P.row.getBoundingClientRect().width * .7) + 'px';
+    g.innerHTML = '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:4px"></div><span class="tl-badge" style="display:none"></span>';
+    g.firstChild.textContent = P.title; document.body.appendChild(g); P.g = g;
+    const t = tlRect(); if (t) { const z = document.createElement('div'); z.className = 'tl-drop'; z.style.setProperty('--c', P.c); z.style.display = 'none'; z.style.height = (LEN * TL_PX / 60 - 2) + 'px'; t.tl.appendChild(z); P.z = z; }
+    try { navigator.vibrate && navigator.vibrate(12); } catch(e) {}
+    move(P.x, P.y); loop();
+  }
+  function move(x, y){
+    if (!P || !P.active) return; P.x = x; P.y = y;
+    const m = minuteAt(y), d = m === null ? dayAt(x, y) : null;
+    P.m = m; P.d = d;
+    document.querySelectorAll('.wk-d.drop').forEach(b => { if (b.dataset.d !== d) b.classList.remove('drop'); });
+    if (d) { const b = document.querySelector('.wk-d[data-d="' + d + '"]'); b && b.classList.add('drop'); }
+    const badge = P.g.querySelector('.tl-badge');
+    if (m !== null) { const t = tlRect(); badge.style.display = ''; badge.textContent = hhmm(m) + '–' + hhmm(m + LEN);
+      P.g.style.height = (LEN * TL_PX / 60 - 2) + 'px'; P.g.style.opacity = '.92';
+      if (P.z) { P.z.style.display = ''; P.z.style.top = ((m - t.sh*60) * TL_PX / 60 + 1) + 'px'; } }
+    else { badge.style.display = d ? '' : 'none'; if (d) badge.textContent = '移到 ' + (+d.slice(5,7)) + '/' + (+d.slice(8));
+      P.g.style.height = ''; P.g.style.opacity = '1'; if (P.z) P.z.style.display = 'none'; }
+    P.g.style.left = (x - 40) + 'px'; P.g.style.top = (y - 18) + 'px';
+  }
+  /* 手指靠近畫面上下緣時自動捲動 */
+  function loop(){ cancelAnimationFrame(raf); raf = requestAnimationFrame(function step(){
+    if (!P || !P.active) return; const H = window.innerHeight, edge = 90;
+    let v = P.y > H - edge ? (P.y - (H - edge)) / 6 : P.y < edge + 40 ? -((edge + 40) - P.y) / 6 : 0;
+    if (v) { window.scrollBy(0, Math.max(-14, Math.min(14, v))); move(P.x, P.y); }
+    raf = requestAnimationFrame(step); }); }
+  function end(cancel){
+    if (!P) return; const p = P; P = null; clearTimeout(p.timer); cancelAnimationFrame(raf);
+    document.body.classList.remove('ud-dragging');
+    if (!p.active) return;
+    suppress = true; setTimeout(() => { suppress = false; }, 350);
+    p.g && p.g.remove(); p.z && p.z.remove(); p.row.classList.remove('ud-src');
+    document.querySelectorAll('.wk-d.drop').forEach(b => b.classList.remove('drop'));
+    if (cancel) return;
+    if (p.m !== null && p.m !== undefined) {
+      const o = { ID: p.id, '時間': hhmm(p.m), '結束時間': hhmm(p.m + LEN) };
+      run('saveRow', [p.src, o], '排進時間軸…'); toast('已排到 ' + o['時間'] + '–' + o['結束時間'], 1400);
+    } else if (p.d && p.d !== tlDay()) {
+      const o = { ID: p.id }; o[p.src === '工作事項' ? '截止日' : '日期'] = p.d;
+      run('saveRow', [p.src, o], '移動中…'); toast('已移到 ' + (+p.d.slice(5,7)) + '月' + (+p.d.slice(8)) + '日', 1400);
+    }
+  }
+  document.addEventListener('pointerdown', e => {
+    const row = e.target.closest && e.target.closest('.tl-untimed .row.ud-can'); if (!row || P) return;
+    if (e.target.closest('.check,button')) return;
+    P = { row, src: row.dataset.ud, id: row.dataset.uid, title: row.dataset.utitle, c: row.dataset.uc, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, touch: e.pointerType !== 'mouse', active: false };
+    P.timer = setTimeout(() => { document.body.classList.add('ud-dragging'); begin(); }, P.touch ? HOLD : 220);
+  });
+  document.addEventListener('pointermove', e => {
+    if (!P) return;
+    if (!P.active) { if (Math.abs(e.clientX - P.x0) + Math.abs(e.clientY - P.y0) > 8) { clearTimeout(P.timer); P = null; } return; }
+    move(e.clientX, e.clientY);
+  });
+  document.addEventListener('pointerup', () => end(false));
+  document.addEventListener('pointercancel', () => end(!(P && P.active)));
+  document.addEventListener('touchmove', e => { if (P && P.active && e.cancelable) e.preventDefault(); }, { passive: false });
+  document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.tl-untimed .row.ud-can')) e.preventDefault(); });
+  document.addEventListener('click', e => { if (suppress && e.target.closest && e.target.closest('.tl-untimed')) { e.stopPropagation(); e.preventDefault(); } }, true);
 })();
 
 /* 月曆樣式：文字（顯示行程名稱）或點點，記在這台裝置上 */
@@ -4474,6 +4568,7 @@ document.addEventListener('click', e => {
     else if (d.act==='pm-add') { PM_UP = id; if (el.tagName !== 'LABEL') $('#mediaInput').click(); }
     else if (d.act==='pm-open') openPostMedia(id);
     else if (d.act==='calview') { try { localStorage.setItem('calView', d.v); } catch(e){} render(); }
+    else if (d.act==='tlpick') { st.tlDay = d.d; st.calDay = d.d; TL_SCROLL = true; render(); }
     else if (d.act==='tlday') { st.tlDay = d.dir==='0' ? TODAY() : addDays(tlDay(), Number(d.dir)); st.calDay = st.tlDay; TL_SCROLL = true; render(); }
     else if (d.act==='tlnew') { const s0 = toMin(d.t); openForm('待辦行程', null, {'日期': tlDay(), '時間': d.t, '結束時間': hhmm(Math.min(s0+60, 23*60+59)), '類型':'行程'}); }
     else if (d.act==='dur') { const f=$('#form'), st0=f.querySelector('[name="時間"]'), en=f.querySelector('[name="結束時間"]'); if (!st0 || !en) return; const m0 = toMin(st0.value); if (m0===null) { toast('先選開始時間', 1400); st0.focus(); return; } en.value = hhmm(Math.min(m0 + Number(d.m), 23*60+59)); f.querySelectorAll('.durs button').forEach(b=>b.classList.toggle('on', b===el)); }
