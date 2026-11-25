@@ -220,6 +220,7 @@ svg.spark{width:100%;height:70px;display:block}
 .dmmode .mseg button.on{background:var(--card);color:var(--ink);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .fzb{position:relative;width:100%;aspect-ratio:4/5;background:#FFFFFF;border:1px solid var(--line);border-radius:18px;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
 .fz{position:absolute;touch-action:none;-webkit-touch-callout:none;transform-origin:50% 50%}
+.fz img{transition:opacity .15s}
 .fz img,.fz .wph-none{display:block;width:100%;height:auto;pointer-events:none;-webkit-user-drag:none}
 .fz .wph-none{aspect-ratio:1;border-radius:10px;display:grid;place-items:center;font-size:12px;color:#8C8475}
 .fz.sel{outline:1.5px dashed #8C8475;outline-offset:3px;border-radius:4px}
@@ -3309,10 +3310,40 @@ function fzParse(o){ try { const a = JSON.parse(String(o && o['版面'] || ''));
 function fzLayoutFor(o){ const a = fzParse(o); if (!a) return null; const ids = String(o['衣物']||'').split(',').filter(Boolean);
   const keep = a.filter(x => ids.includes(x.id) && clothes().some(c=>c.ID===x.id)); const saveFZ = fzLoad(); FZ = keep.map(x=>Object.assign({}, x));
   ids.filter(id => !keep.some(x=>x.id===id)).forEach(id => fzAdd(id, true)); const out = FZ; FZ = saveFZ; try { localStorage.setItem('dmFree', JSON.stringify(FZ||[])); } catch(e) {} return out; }
-function fzStatic(L, cls){ return `<div class="fzb fzs ${cls||''}">${L.map(it => { const c = clothes().find(x=>x.ID===it.id); return c ? `<div class="fz" style="left:${it.x}%;top:${it.y}%;width:${it.w}%;z-index:${it.z||1};transform:translate(-50%,-50%) rotate(${it.r||0}deg)">${clothImg(c)}</div>` : ''; }).join('')}</div>`; }
+function fzStatic(L, cls){ setTimeout(fzCutAll, 0); return `<div class="fzb fzs ${cls||''}">${L.map(it => { const c = clothes().find(x=>x.ID===it.id); return c ? `<div class="fz" style="left:${it.x}%;top:${it.y}%;width:${it.w}%;z-index:${it.z||1};transform:translate(-50%,-50%) rotate(${it.r||0}deg)">${clothImg(c)}</div>` : ''; }).join('')}</div>`; }
+/* 去背：把照片外圍的白底（和邊緣相連的白色）變透明，白色衣服本身不受影響 */
+const FZ_CUT = {};
+function fzCutout(src){
+  if (FZ_CUT[src]) return FZ_CUT[src];
+  return FZ_CUT[src] = new Promise(res => {
+    const im = new Image(); im.onload = () => { try {
+      const sc = Math.min(1, 700 / Math.max(im.naturalWidth, im.naturalHeight)), W = Math.max(1, Math.round(im.naturalWidth*sc)), H = Math.max(1, Math.round(im.naturalHeight*sc));
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d'); cx.drawImage(im, 0, 0, W, H);
+      const id = cx.getImageData(0, 0, W, H), a = id.data, N = W*H;
+      const bgLike = i => { const r = a[i*4], g = a[i*4+1], b = a[i*4+2], mx = Math.max(r,g,b), mn = Math.min(r,g,b); return a[i*4+3] < 20 || (mn > 228 && mx - mn < 22); };
+      let edgeBg = 0; for (let x = 0; x < W; x++) { edgeBg += bgLike(x) + bgLike((H-1)*W + x); } for (let y = 0; y < H; y++) { edgeBg += bgLike(y*W) + bgLike(y*W + W-1); }
+      if (edgeBg < (W+H) * 0.6) return res(src);   /* 外圍大多不是白底（例如一般照片），不處理 */
+      const seen = new Uint8Array(N), q = new Int32Array(N); let qh = 0, qt = 0;
+      const push = i => { if (!seen[i] && bgLike(i)) { seen[i] = 1; q[qt++] = i; } };
+      for (let x = 0; x < W; x++) { push(x); push((H-1)*W + x); } for (let y = 0; y < H; y++) { push(y*W); push(y*W + W-1); }
+      while (qh < qt) { const i = q[qh++], x = i % W; if (x > 0) push(i-1); if (x < W-1) push(i+1); if (i >= W) push(i-W); if (i < N-W) push(i+W); }
+      for (let i = 0; i < N; i++) if (seen[i]) a[i*4+3] = 0;
+      /* 邊緣柔化：緊貼背景的淺色像素半透明，去掉白邊 */
+      for (let i = 0; i < N; i++) { if (seen[i]) continue; const x = i % W;
+        const nb = (x > 0 && seen[i-1]) || (x < W-1 && seen[i+1]) || (i >= W && seen[i-W]) || (i < N-W && seen[i+W]);
+        if (nb) { const l = (a[i*4] + a[i*4+1] + a[i*4+2]) / 3; if (l > 200) a[i*4+3] = Math.round(255 * Math.max(0.15, (255 - l) / 55)); } }
+      cx.putImageData(id, 0, 0); res(cv.toDataURL('image/png'));
+    } catch(e) { res(src); } };
+    im.onerror = () => res(src); im.src = src;
+  });
+}
+function fzCutAll(){ document.querySelectorAll('.fz img:not([data-cut])').forEach(img => { const src = img.getAttribute('src'); img.dataset.cut = 1; if (!src) return;
+  if (FZ_CUT[src] && FZ_CUT[src].done) { img.src = FZ_CUT[src].done; return; }
+  img.style.opacity = '0'; fzCutout(src).then(out => { FZ_CUT[src].done = out; img.src = out; img.style.opacity = ''; }); }); }
 function fzSelect(i){ FZ_SEL = i; document.querySelectorAll('#fzBoard .fz').forEach(el => el.classList.toggle('sel', +el.dataset.k === i)); const t = $('#fzTools'); if (t) t.style.display = i >= 0 ? '' : 'none'; }
 function fzApply(el, it){ el.style.left = it.x+'%'; el.style.top = it.y+'%'; el.style.width = it.w+'%'; el.style.zIndex = it.z||1; el.style.transform = `translate(-50%,-50%) rotate(${it.r||0}deg)`; }
 function fzInit(){
+  fzCutAll();
   const b = $('#fzBoard'); if (!b || b.dataset.on) return; b.dataset.on = 1;
   const pts = new Map(); let G = null;
   const L = () => fzLoad();
