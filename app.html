@@ -1060,7 +1060,7 @@ const TRANS_TYPES = ['—','地鐵','公車','火車／高鐵','計程車','步�
 const TRANS_COLOR = {'地鐵':'#B9DAA5','公車':'#F6D27A','火車／高鐵':'#A8D3E6','計程車':'#F6D27A','步行':'#F2A497','開車':'#A8D3E6','船':'#A8D3E6','飛機':'#F2A497','其他':'#E4DCD2'};
 const REMIND_OPTS = ['準時','10 分鐘前','30 分鐘前','1 小時前','1 天前'];
 const SHOW_TYPES = ['演唱會','音樂祭','Live House','簽唱／見面會','音樂劇','舞台劇','其他'];
-const W_CATS = ['上衣','內搭','褲子','裙子','洋裝','外套','鞋子','包包','配件','其他'];
+const W_CATS = ['上衣','內搭','褲子','裙子','洋裝','外套','鞋子','襪子','包包','配件','其他'];
 const WCOLORS = {'黑':'#2B2925','白':'#FAF7F0','灰':'#A7A39C','米':'#E6D8BF','卡其':'#C2A878','棕':'#8A5F3F','紅':'#C8463D','粉':'#EFAFC0','橘':'#E58A4E','黃':'#F1CF5B','綠':'#6E9A6A','藍':'#5B84BD','深藍':'#27375E','紫':'#9277B8','花色':'conic-gradient(#F2A497 0 25%,#F6D27A 0 50%,#A8D3E6 0 75%,#B9DAA5 0)'};
 const SCHEMA = {
   '待辦行程':{name:'待辦', label:'標題', fields:[
@@ -3355,8 +3355,8 @@ function quickExpense(o, amount, label, re){
   toast('已同時記一筆支出（'+cat+'）', 1800);
 }
 /* ---------- 配衣（Dress Me）：一排一排左右滑動自由搭配 ---------- */
-const DM_ROWS = [['外套',['外套']],['上衣',['上衣','洋裝']],['內搭',['內搭']],['下身',['褲子','裙子']],['鞋子',['鞋子']],['包包',['包包']],['配件',['配件']]];
-const DM_OPTIONAL = ['外套','內搭','包包','配件'];
+const DM_ROWS = [['外套',['外套']],['上衣',['上衣','洋裝']],['內搭',['內搭']],['下身',['褲子','裙子']],['鞋子',['鞋子']],['襪子',['襪子']],['包包',['包包']],['配件',['配件']]];
+const DM_OPTIONAL = ['外套','內搭','襪子','包包','配件'];
 function dmEnabled(){ let on = null; try { on = JSON.parse(localStorage.getItem('dmRows')||'null'); } catch(e){} return Array.isArray(on) ? on : ['上衣','下身','鞋子']; }
 function dmItems(row){ const cats = (DM_ROWS.find(r=>r[0]===row)||[])[1]||[]; const list = clothes().filter(r=>r['狀態']!=='已淘汰' && cats.includes(r['分類'])); return DM_OPTIONAL.includes(row) ? [{ID:'', '名稱':'不搭'+row}].concat(list) : list; }
 function dmIsDress(){ const t = clothes().find(c=>c.ID===(st.dm||{})['上衣']); return !!(t && t['分類']==='洋裝'); }
@@ -3375,14 +3375,14 @@ const FORM_SVG = (()=>{ const cr = (pts) => { const n = pts.length; let d = 'M'+
   const T = cr(L.concat(L.slice().reverse().map(([x,y])=>[200-x,y])));
   return `<svg class="fzform" viewBox="0 0 200 410" preserveAspectRatio="xMidYMid meet"><path d="M98,206 L98,360 L102,360 L102,206Z" fill="#9C7B5E"/><path d="M100,358 L66,396 M100,358 L134,396 M100,358 L100,400" stroke="#9C7B5E" stroke-width="4.5" stroke-linecap="round"/><circle cx="100" cy="358" r="5" fill="#9C7B5E"/><path d="${T}" fill="#E9DFCF" stroke="#BBA98F" stroke-width="1.4"/><path d="M84,74 C80,110 86,140 88,152 C86,170 84,190 84,206 M116,74 C120,110 114,140 112,152 C114,170 116,190 116,206 M76,150 Q100,156 124,150" fill="none" stroke="#CDBDA4" stroke-width="1.2"/><ellipse cx="100" cy="40" rx="11" ry="3.6" fill="#9C7B5E"/><path d="M95,40 L95,30 Q100,26 105,30 L105,40" fill="#9C7B5E"/></svg>`; })();
 /* 人台上的位置：x 中心、top 上緣（都用人台座標）、w 寬度、z 圖層 */
-const FORM_POS = {'上衣':[100,54,150,3],'內搭':[100,58,134,2],'洋裝':[100,54,150,3],'外套':[100,48,166,4],'褲子':[100,144,122,1],'裙子':[100,144,112,1],'鞋子':[50,366,70,1],'包包':[166,150,64,5],'配件':[100,28,42,6]};
+const FORM_POS = {'上衣':[100,54,150,3],'內搭':[100,58,134,2],'洋裝':[100,54,150,3],'外套':[100,48,166,4],'褲子':[100,144,122,1],'裙子':[100,144,112,1],'鞋子':[50,366,70,1],'襪子':[150,364,52,1],'包包':[166,150,64,5],'配件':[100,28,42,6]};
 const fmX = sx => 19.5 + sx / 200 * 61, fmW = sw => sw / 200 * 61, fmY = sy => sy / 410 * 100;
 /* ---------- 自由配衣：衣服可以任意移動、兩指縮放旋轉 ---------- */
 let FZ = null;
 const fzKey = () => dmMode() === 'form' ? 'dmForm' : 'dmFree';
 function fzLoad(){ if (FZ) return FZ; try { FZ = JSON.parse(localStorage.getItem(fzKey())||'[]'); } catch(e) { FZ = []; } const ok = new Set(clothes().map(c=>c.ID)); FZ = (Array.isArray(FZ)?FZ:[]).filter(x => ok.has(x.id)); return FZ; }
 function fzSave(){ try { localStorage.setItem(fzKey(), JSON.stringify(FZ||[])); } catch(e) {} }
-const FZ_POS = {'外套':[24,34,40],'上衣':[50,26,44],'洋裝':[50,40,46],'內搭':[74,24,32],'褲子':[50,62,38],'裙子':[50,60,38],'鞋子':[50,88,26],'包包':[80,60,28],'配件':[80,12,20]};
+const FZ_POS = {'外套':[24,34,40],'上衣':[50,26,44],'洋裝':[50,40,46],'內搭':[74,24,32],'褲子':[50,62,38],'裙子':[50,60,38],'鞋子':[50,88,26],'襪子':[24,86,18],'包包':[80,60,28],'配件':[80,12,20]};
 function fzAdd(id, quiet, form){ const c = clothes().find(x=>x.ID===id); if (!c) return; if (form === undefined) form = dmMode() === 'form';
   if (form) { const L = fzLoad(), f = FORM_POS[c['分類']] || [100,120,90,3], n = L.filter(x => (clothes().find(y=>y.ID===x.id)||{})['分類'] === c['分類']).length;
     const it = {id, x:fmX(f[0]) + n*5, w:fmW(f[2]), r:0, z:f[3] + n*0.1, top:fmY(f[1]) + n*3}; it.y = it.top + it.w*0.8/2; L.push(it);
@@ -3581,6 +3581,7 @@ const CROP_TPL = {
   '裙子':'M33 14 L67 14 L84 80 Q50 90 16 80 Z',
   '洋裝':'M38 6 L44 6 Q50 14 56 6 L62 6 L60 30 L66 42 L84 92 Q50 98 16 92 L34 42 L40 30 Z',
   '鞋子':'M10 64 L10 44 L26 42 L30 54 L44 62 Q46 74 38 74 L10 74 Z M54 64 L54 44 L70 42 L74 54 L88 62 Q90 74 82 74 L54 74 Z',
+  '襪子':'M18 10 L36 10 L36 58 Q36 70 46 72 L46 86 L22 86 Q14 86 14 76 L18 60 Z M56 10 L74 10 L74 58 Q74 70 84 72 L84 86 L60 86 Q52 86 52 76 L56 60 Z',
   '包包':'M22 42 L78 42 L82 88 L18 88 Z M36 42 Q36 16 50 16 Q64 16 64 42'
 };
 function loadImgEl(file){ return new Promise((res, rej) => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => res({im, u}); im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('無法讀取這張圖片')); }; im.src = u; }); }
@@ -3607,7 +3608,7 @@ async function prepClothImage(file, cat){
 function cropUI(im, cat, file){
   return new Promise(resolve => {
     const box = document.createElement('div'); box.id = 'cropper';
-    const tpl = CROP_TPL[cat==='洋裝'?'洋裝':cat==='外套'?'外套':cat==='褲子'?'褲子':cat==='裙子'?'裙子':cat==='鞋子'?'鞋子':cat==='包包'?'包包':(cat==='上衣'||cat==='內搭')?'上衣':''] || '';
+    const tpl = CROP_TPL[cat==='洋裝'?'洋裝':cat==='外套'?'外套':cat==='褲子'?'褲子':cat==='裙子'?'裙子':cat==='鞋子'?'鞋子':cat==='襪子'?'襪子':cat==='包包'?'包包':(cat==='上衣'||cat==='內搭')?'上衣':''] || '';
     box.innerHTML = `<div class="cr-top">拖曳、雙指縮放，把衣服對齊虛線</div><div class="cr-stage"><img alt=""><div class="cr-frame">${tpl?`<svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${tpl}" fill="none" stroke="#FFFFFF" stroke-width="0.7" stroke-dasharray="2.2 1.6" vector-effect="non-scaling-stroke" opacity=".9"/></svg>`:''}</div></div>
       <div class="cr-bot"><button data-r="cancel">取消</button><button data-r="orig">不裁切</button><button data-r="ok" class="on">完成</button></div>`;
     document.body.appendChild(box);

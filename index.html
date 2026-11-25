@@ -46,7 +46,7 @@
 
     // 拍衣服相機：要用時才載入
     var camP = null;
-    function loadCam() { if (camP) return camP; camP = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = 'camera.js?v=4'; s.onload = res; s.onerror = function () { camP = null; rej(); }; document.head.appendChild(s); }); return camP; }
+    function loadCam() { if (camP) return camP; camP = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = 'camera.js?v=5'; s.onload = res; s.onerror = function () { camP = null; rej(); }; document.head.appendChild(s); }); return camP; }
 
     // 幫網站保存一份資料快取：下次打開先顯示上次的內容，不用等伺服器
     window.addEventListener('message', function (e) {
