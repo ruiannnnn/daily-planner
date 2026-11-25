@@ -142,6 +142,12 @@ svg.spark{width:100%;height:70px;display:block}
 .witem .wmeta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;overflow:hidden;white-space:nowrap}
 .wflag.pend{left:auto;right:6px;background:#E9BE5A;color:#3a2a00;font-weight:700}
 .pgrid .ph .pendlab{position:absolute;left:4px;top:4px;background:#E9BE5A;color:#3a2a00;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px}
+.oph{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 14px}
+.oph .ph{position:relative;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--line)}
+.oph .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.oph .ph span{position:absolute;left:5px;bottom:5px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px}
+.oph .addph{aspect-ratio:3/4}
+.wimg.ophc{border:2px solid var(--coral)}
 .wpend{background:#FBF1D9;border:1px solid #EAD39A;border-radius:12px;padding:9px 11px;font-size:12.5px;line-height:1.6;margin:-6px 0 12px;color:#5a4a1e}
 .wflag{position:absolute;left:6px;top:6px;background:rgba(43,41,37,.75);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px}
 .wdot{box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);flex:none}
@@ -693,6 +699,7 @@ setTimeout(function(){ if(!window.__booted) window.__bootErr('等候超過 25 �
   <div class="vw-stage"><button class="vw-nav" data-act="vw-prev">‹</button><img id="vwImg" alt=""><button class="vw-nav" data-act="vw-next">›</button></div>
   <div id="vwCap" class="vw-cap"></div></div>
 <input type="file" id="photoInput" accept="image/*" multiple class="vh-file" tabindex="-1" aria-hidden="true">
+<input type="file" id="ophInput" accept="image/*" multiple class="vh-file" tabindex="-1" aria-hidden="true">
 <input type="file" id="camInput" accept="image/*" capture="environment" class="vh-file" tabindex="-1" aria-hidden="true">
 <input type="file" id="mediaInput" accept="image/*,video/*" multiple class="vh-file" tabindex="-1" aria-hidden="true">
 <div id="toast"></div>
@@ -3008,10 +3015,10 @@ function wardList(){
 function outfitCard(o){
   const items = outfitItems(o);
   return `<section class="card tap" data-act="woview" data-id="${esc(o.ID)}" style="padding:14px"><div class="card-h" style="margin-bottom:10px"><h2 style="font-size:16px">${esc(o['名稱']||'穿搭')}</h2><span class="sub">${esc([o['場合'], o['季節']].filter(Boolean).join(' · '))}</span></div>
-    <div class="wstrip">${(()=>{ const L = fzParse(o) ? fzLayoutFor(o) : null; return L ? fzStatic(L, 'fzmini') : ''; })()}${items.slice(0,6).map(r=>`<div class="wimg">${clothImg(r)}</div>`).join('')}${items.length>6?`<div class="wimg wmore">+${items.length-6}</div>`:''}${!items.length?'<span class="muted small">衣物都被刪除了</span>':''}</div>${outfitWear(o.ID).n?`<div class="small muted" style="margin-top:8px">${wearLine(outfitWear(o.ID))}</div>`:''}</section>`;
+    <div class="wstrip">${(()=>{ const ph = outfitPhotos(o.ID)[0]; return ph && ph['縮圖'] ? `<div class="wimg ophc" style="width:72px;aspect-ratio:3/4;height:auto"><img src="${esc(ph['縮圖'])}" alt="" style="object-fit:cover"></div>` : ''; })()}${(()=>{ const L = fzParse(o) ? fzLayoutFor(o) : null; return L ? fzStatic(L, 'fzmini') : ''; })()}${items.slice(0,6).map(r=>`<div class="wimg">${clothImg(r)}</div>`).join('')}${items.length>6?`<div class="wimg wmore">+${items.length-6}</div>`:''}${!items.length?'<span class="muted small">衣物都被刪除了</span>':''}</div>${outfitWear(o.ID).n?`<div class="small muted" style="margin-top:8px">${wearLine(outfitWear(o.ID))}</div>`:''}</section>`;
 }
 function vWardrobe(){
-  if (!WPH) loadWardPhotos();
+  if (!WPH) loadWardPhotos(); if (st.wd==='穿搭' && !OPH) loadOutfitPhotos();
   const all = clothes(), live = all.filter(r=>r['狀態']!=='已淘汰');
   const head = `<button class="back" data-more="">‹ 更多</button><div class="page-title"><h1>衣櫃</h1><span class="muted small">${live.length} 件 · ${outfits().length} 套穿搭</span></div>
   <div class="seg">${['衣物','穿搭','配衣','穿著紀錄','想買'].map(x=>`<button class="${st.wd===x?'on':''}" data-act="wtab" data-v="${x}">${x}</button>`).join('')}</div>`;
@@ -3059,11 +3066,45 @@ function wardDup(){
   const same = cat && col ? clothes().filter(r=>r.ID!==f.dataset.id && r['狀態']!=='已淘汰' && r['分類']===cat && r['顏色']===col) : [];
   box.innerHTML = same.length ? `<div class="wdup"><b>衣櫃裡已經有 ${same.length} 件${esc(colName(col))}${esc(cat)}</b><div class="wstrip" style="margin-top:8px">${same.slice(0,6).map(r=>`<div style="width:56px;flex:none;text-align:center"><div class="wimg" style="width:56px;height:56px">${clothImg(r)}</div><div class="small" style="font-size:11px;line-height:1.3;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r['名稱'])}</div></div>`).join('')}</div></div>` : '';
 }
+/* ---------- 穿搭實穿照 ---------- */
+let OPH = null, ophLoading = false, OUP = null;
+function loadOutfitPhotos(){ if (OPH || ophLoading) return; ophLoading = true;
+  call('getPhotos', '穿搭照片').then(p => { OPH = p || []; ophLoading = false; ophRefresh(); }).catch(() => { OPH = []; ophLoading = false; }); }
+const outfitPhotos = id => (OPH||[]).filter(p=>p['穿搭ID']===id).sort((a,b)=>String(b['日期']||b['上傳時間']).localeCompare(String(a['日期']||a['上傳時間'])));
+function ophTiles(id){ const ps = outfitPhotos(id);
+  return ps.map(p=>`<div class="ph tap" data-act="ophview" data-id="${esc(p.ID)}">${p['縮圖']?`<img src="${esc(p['縮圖'])}" alt="">`:''}${p['日期']?`<span>${esc(nice(p['日期']))}</span>`:''}</div>`).join('')
+    + `<label class="addph" for="ophInput" data-act="o-addph" data-id="${esc(id)}"><span style="font-size:22px;line-height:1">＋</span>${ps.length?'再加實穿照':'加實穿照'}</label>`
+    + (!OPH ? '<div class="small muted" style="grid-column:1/-1">照片載入中…</div>' : ''); }
+function ophRefresh(){ const g = $('#ophGrid'); if (g && CUR_OUTFIT) g.innerHTML = ophTiles(CUR_OUTFIT); if (st.tab==='more' && st.more==='衣櫃' && st.wd==='穿搭' && !$('#sheet').classList.contains('show')) render(); }
+/* 照片日期：這套最近 3 天內有穿過就用那天，不然用今天 */
+function ophDate(oid){ const w = wears().filter(x=>x['穿搭ID']===oid && x['日期']<=TODAY() && diff(TODAY(), x['日期']) <= 3).sort((a,b)=>String(b['日期']).localeCompare(String(a['日期'])))[0]; return w ? w['日期'] : TODAY(); }
+async function uploadOutfitPhotos(oid, files){
+  const list = [...files]; if (!list.length) return; if (!OPH) OPH = [];
+  let okN = 0, err = ''; const day = ophDate(oid);
+  for (let i = 0; i < list.length; i++) {
+    try { toast(`上傳實穿照${list.length>1?' '+(i+1)+'/'+list.length:''}…`);
+      const full = await resizeImage(list[i], 1600, 0.85), thumb = await makeThumb(list[i], true);
+      OPH.push(await call('uploadPhoto2', '穿搭照片', {'穿搭ID': oid, '日期': day}, full.split(',')[1], thumb, (list[i].name || 'outfit').replace(/\.[^.]+$/,'') + '.jpg')); okN++;
+    } catch(e) { err = String(e && e.message || e).replace(/^Error:\s*/,''); break; }
+  }
+  if (err) toast((okN ? `已上傳 ${okN} 張，第 ${okN+1} 張失敗：` : '上傳失敗：') + err, 9000); else if (okN) toast('實穿照已上傳 ✓', 1400);
+  if (CUR_OUTFIT === oid && $('#sheet').classList.contains('show') && $('#ophGrid')) viewOutfit(oid); else ophRefresh();
+}
+function ophSheet(pid){
+  const p = (OPH||[]).find(x=>x.ID===pid); if (!p) return; const oid = p['穿搭ID'], o = outfits().find(x=>x.ID===oid);
+  openSheet(`<div style="border-radius:12px;overflow:hidden;background:var(--line);margin-bottom:10px"><img id="ophFull" src="${esc(p['縮圖'])}" alt="" style="width:100%;display:block"></div>
+    <div class="small muted" style="margin-bottom:8px">${esc(o ? o['名稱'] : '')}${p['日期'] ? ' · ' + esc(niceW(p['日期'])) : ''}</div>
+    <div class="actions"><button type="button" class="del" data-act="ophdel" data-id="${esc(pid)}">刪除這張</button><button type="button" class="save" data-act="woview" data-id="${esc(oid)}">返回</button></div>`);
+  const show = src => { const i = $('#ophFull'); if (i && src) i.src = src; };
+  if (FULLCACHE[pid]) show(FULLCACHE[pid]); else call('getMediaFull', p['檔案ID']).then(src => { FULLCACHE[pid] = src; show(src); }).catch(() => {});
+}
 function viewOutfit(id){
-  const o = outfits().find(x=>x.ID===id); if (!o) return; if (!WPH) loadWardPhotos(); CUR_OUTFIT = id;
+  const o = outfits().find(x=>x.ID===id); if (!o) return; if (!WPH) loadWardPhotos(); if (!OPH) loadOutfitPhotos(); CUR_OUTFIT = id;
   const items = outfitItems(o);
   openSheet(`<h2 style="margin-bottom:4px">${esc(o['名稱']||'穿搭')}</h2><div class="small muted" style="margin-bottom:12px">${esc([o['場合'], o['季節'], items.length+' 件'].filter(Boolean).join(' · '))}</div>
     ${(()=>{ const L = fzLayoutFor(o); return L ? `<div class="wo-board">${fzStatic(L)}<button class="btn" data-act="fzopen" data-id="${esc(id)}">調整排版</button></div>` : `<div style="margin:0 0 10px"><button class="btn" data-act="fzopen" data-id="${esc(id)}">${icon('<path d="M4 4h7v7H4zM13 13h7v7h-7z"/>',14)} 用自由配衣排版</button> <button class="btn" data-act="fzopenform" data-id="${esc(id)}">穿到人台上</button></div>`; })()}
+    <div class="small muted" style="margin:2px 0 6px;display:flex;justify-content:space-between"><span>實穿照</span><span>${(OPH||[]).filter(p=>p['穿搭ID']===id).length || ''}</span></div>
+    <div class="oph" id="ophGrid">${ophTiles(id)}</div>
     ${inspBlock(o, items)}
     <div class="wgrid" style="grid-template-columns:repeat(2,1fr)">${items.map(r=>`<button class="witem" data-act="wview" data-id="${esc(r.ID)}"><div class="wimg">${clothImg(r)}</div><div class="wname">${esc(r['名稱'])}</div><div class="wmeta">${esc(r['分類']||'')}</div></button>`).join('')}</div>
     ${o['備註']?`<div class="lrow" style="margin-top:12px"><span class="lk">備註</span><div style="white-space:pre-wrap">${esc(o['備註'])}</div></div>`:''}
@@ -4699,6 +4740,10 @@ document.addEventListener('click', e => {
     else if (d.act==='wtab') { st.wd=d.v; render(); }
     else if (d.act==='wcat') { st.wcat=d.v; st.wcol='全部'; render(); }
     else if (d.act==='wcol') { st.wcol=d.v; render(); }
+    else if (d.act==='o-addph') { OUP = id; }
+    else if (d.act==='ophview') ophSheet(id);
+    else if (d.act==='ophdel') { const p=(OPH||[]).find(x=>x.ID===id); if (!p) return; const oid=p['穿搭ID'];
+      ask('刪除這張實穿照？','雲端上的照片也會一起刪除。','刪除').then(ok => { if (!ok) return viewOutfit(oid); toast('刪除中…'); call('deletePhoto', id, '穿搭照片').then(()=>{ OPH=OPH.filter(x=>x.ID!==id); toast('已刪除 ✓',1000); viewOutfit(oid); }).catch(e=>toast('刪除失敗：'+(e.message||e),3500)); }); }
     else if (d.act==='w-cam') { if (CAM_OK) { e.preventDefault(); camOpen(id); } else CAMW = id; }
     else if (d.act==='wold') { st.wold=!st.wold; const l=$('#ward-list'); if (l) l.innerHTML=wardList(); }
     else if (d.act==='wview') viewCloth(id);
@@ -4962,6 +5007,7 @@ $('#noteText').addEventListener('click', e => { const im = e.target.closest && e
 $('#linkTip').addEventListener('pointerdown', e => { if (e.target.closest('button')) e.preventDefault(); });
 $('#linkTip').addEventListener('click', e => { if (e.target.closest('[data-ln="edit"]')) openLinkSheet(); });
 $('#mediaInput').onchange = e => { const pid = PM_UP; PM_UP = null; const files = [...e.target.files]; e.target.value = ''; if (!pid) return toast('請再點一次「＋ 圖片／影片」', 2000); uploadPostMedia(pid, files); };
+$('#ophInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (OUP && files.length) { const o = OUP; OUP = null; uploadOutfitPhotos(o, files); } };
 $('#camInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (CAMW && files.length) { const w = CAMW; CAMW = null; uploadWardPhotos(w, files); } };
 $('#photoInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (SUP) { const x = SUP; SUP = null; uploadShowPhotos(x, files); } else if (NUP) { const n = NUP; NUP = null; uploadNailPhotos(n, files); } else if (WUP) { const w = WUP; WUP = null; uploadWardPhotos(w, files); } else if (TUP) { const t = TUP; TUP = null; uploadTripPhotos(t.tid, t.day, files); } else if (UPLOAD_EVENT) uploadPhotos(UPLOAD_EVENT, files); };
 $('#scrim').onclick = () => { closeSheet(); if(askCb){ askCb(false); askCb=null; } };
@@ -5155,6 +5201,7 @@ const Local = (() => {
   db['想買衣物'] = [{ID:'WW1','名稱':'灰色針織背心','分類':'上衣','顏色':'灰','預算':890,'連結':'','靈感貼文':'','原因':'可以疊穿白襯衫','狀態':'想買','建立時間':''},{ID:'WW2','名稱':'黑色直筒褲','分類':'褲子','顏色':'黑','預算':1290,'連結':'','靈感貼文':'','原因':'','狀態':'想買','建立時間':''}];
   db['穿著紀錄'] = [{ID:'WR1','日期':d(-2),'穿搭ID':'OF1','衣物':'WC1,WC3,WC5,WC6','備註':''},{ID:'WR2','日期':d(-9),'穿搭ID':'','衣物':'WC2','備註':''}];
   db['穿搭'] = [{ID:'OF1','名稱':'上課日 · 襯衫配寬褲','衣物':'WC1,WC3,WC5,WC6','場合':'上班','季節':'春、秋','備註':'','建立時間':'2026-11-01'}];
+  let ophotos = [];
   let wphotos = [['WC1','#FAF7F0','#E6D8BF','襯衫'],['WC3','#2B2925','#5a5650','寬褲'],['WC5','#E6D8BF','#C2A878','風衣']]
     .map(([c,a,b,x],i)=>({ID:'WP'+i,'衣物ID':c,'檔案ID':'','縮圖':demo(a,b,x),'說明':'','上傳時間':'2026-01-0'+(i+1)}));
   let tphotos = [['YT2',d(-45),'#C46F8E','#E9C46A','孔廟'],['YT2',d(-45),'#3F7A68','#7DB9E2','安平'],['YT2',d(-44),'#B5523B','#E9A86A','牛肉湯']]
@@ -5173,13 +5220,13 @@ const Local = (() => {
     deleteProject(id){ db['專案']=db['專案'].filter(x=>x.ID!==id); ['專案步驟','專案名單'].forEach(t=>db[t]=db[t].filter(x=>x['專案ID']!==id)); return snap(); },
     deleteTrip(id){ db['旅遊']=db['旅遊'].filter(x=>x.ID!==id); db['旅遊行程']=db['旅遊行程'].filter(x=>x['旅遊ID']!==id); db['旅遊清單']=db['旅遊清單'].filter(x=>x['旅遊ID']!==id); return snap(); },
     getFxRate(c){ const R={'JPY':0.2135,'KRW':0.0231,'USD':32.15,'EUR':34.8,'HKD':4.12,'CNY':4.43,'THB':0.93,'SGD':24.1,'MYR':7.2,'VND':0.00127,'GBP':40.9,'AUD':21.0,'CAD':23.3}; return {rate:R[c]||1, date:T}; },
-    getPhotos(t){ return t==='筆記照片' ? nimgs.slice() : t==='演出照片' ? sphotos.slice() : t==='美甲照片' ? nphotos.slice() : t==='衣櫃照片' ? wphotos.slice() : t==='旅遊照片' ? tphotos.slice() : t==='貼文媒體' ? pmedia.slice() : photos.slice(); },
+    getPhotos(t){ return t==='穿搭照片' ? ophotos.slice() : t==='筆記照片' ? nimgs.slice() : t==='演出照片' ? sphotos.slice() : t==='美甲照片' ? nphotos.slice() : t==='衣櫃照片' ? wphotos.slice() : t==='旅遊照片' ? tphotos.slice() : t==='貼文媒體' ? pmedia.slice() : photos.slice(); },
     uploadMedia(pid, full, thumb, name){ const p={ID:'PM'+(seq++),'貼文ID':pid,'檔案ID':'','縮圖':thumb,'類型':'圖片','檔名':name,'上傳時間':new Date().toISOString()}; pmedia.push(p); return p; },
     videoStart(){ return 'https:\/\/www.googleapis.com/upload/drive/mock'; },
     videoChunk(u, b64, s0, total){ const n = atob(b64).length; return s0 + n >= total ? {done:true, id:'VID'+(seq++)} : {done:false}; },
     videoDone(pid, fid, thumb, name){ const p={ID:'PM'+(seq++),'貼文ID':pid,'檔案ID':fid,'縮圖':thumb,'類型':'影片','檔名':name,'上傳時間':new Date().toISOString()}; pmedia.push(p); return p; },
     getMediaFull(){ throw new Error('預覽模式沒有原圖'); }, getClothCutout(fid){ return (window.__CUT||{})[fid] || ''; },
-    uploadPhoto2(t, f, full, thumb, name){ const p=Object.assign({ID:'TP'+(seq++),'檔案ID':'','縮圖':thumb,'說明':'','上傳時間':new Date().toISOString()}, f); (t==='旅遊照片'?tphotos:t==='衣櫃照片'?wphotos:t==='美甲照片'?nphotos:t==='演出照片'?sphotos:t==='筆記照片'?nimgs:photos).push(p); return p; },
+    uploadPhoto2(t, f, full, thumb, name){ const p=Object.assign({ID:'TP'+(seq++),'檔案ID':'','縮圖':thumb,'說明':'','上傳時間':new Date().toISOString()}, f); (t==='穿搭照片'?ophotos:t==='旅遊照片'?tphotos:t==='衣櫃照片'?wphotos:t==='美甲照片'?nphotos:t==='演出照片'?sphotos:t==='筆記照片'?nimgs:photos).push(p); return p; },
     setPhotoCover(t, id, g){ return true; },
     geocodePlace(q){ const k=Object.keys(GEO).find(x=>q.includes(x)); return k ? [Object.assign({'名稱':q,'地址':GEO[k][4]},{'城市':GEO[k][2],'國家':GEO[k][3],'緯度':GEO[k][0],'經度':GEO[k][1]})] : []; },
     importTripPlaces(){ let n=0; db['旅遊'].filter(t=>t['出發日']<=T).forEach(t=>String(t['目的地']).split(/[、,，\s]+/).filter(Boolean).forEach(name=>{ const g=GEO[name]; if (!g || db['足跡'].some(p=>p['名稱']===name&&p['旅遊ID']===t.ID)) return; upsert('足跡',{'名稱':name,'地址':g[4],'城市':g[2],'國家':g[3],'緯度':g[0],'經度':g[1],'旅遊ID':t.ID,'日期':t['出發日'],'備註':''}); n++; })); return Object.assign(snap(), {_added:n}); },
@@ -5193,7 +5240,7 @@ const Local = (() => {
       for (let k=have; k<Math.min(12, have+5); k++) { photos.push({ID:'CP'+(seq++),'行程ID':ev,'檔案ID':'F'+k,'縮圖':demo(cols[k%5],cols[(k+2)%5],'☁ '+(k+1)),'說明':'','上傳時間':'2026-11-0'+(k%9+1),'來源':'雲端資料夾'}); n++; }
       return {added:n, removed:0, total:30, photos:photos.slice()}; },
     uploadPhoto(ev, full, thumb, name){ const p={ID:'PH'+(seq++),'行程ID':ev,'檔案ID':'','縮圖':thumb,'說明':'','上傳時間':new Date().toISOString()}; photos.push(p); return p; },
-    deletePhoto(id){ photos = photos.filter(p=>p.ID!==id); tphotos = tphotos.filter(p=>p.ID!==id); pmedia = pmedia.filter(p=>p.ID!==id); wphotos = wphotos.filter(p=>p.ID!==id); nphotos = nphotos.filter(p=>p.ID!==id); sphotos = sphotos.filter(p=>p.ID!==id); return true; },
+    deletePhoto(id){ ophotos = ophotos.filter(p=>p.ID!==id); photos = photos.filter(p=>p.ID!==id); tphotos = tphotos.filter(p=>p.ID!==id); pmedia = pmedia.filter(p=>p.ID!==id); wphotos = wphotos.filter(p=>p.ID!==id); nphotos = nphotos.filter(p=>p.ID!==id); sphotos = sphotos.filter(p=>p.ID!==id); return true; },
     importRows(n,list,keys){ db[n]=db[n]||[]; list.forEach(o=>{ if(!db[n].some(r=>keys.every(k=>String(r[k]||'')===String(o[k]||'')))) upsert(n,Object.assign({},o)); }); return snap(); },
     adjustQty(id,delta){ const r=get('收納',id); r.數量=Math.max(0,num(r.數量)+delta); r.更新時間=ymd(new Date())+' '+pad(new Date().getHours())+':'+pad(new Date().getMinutes()); return snap(); },
     completeTask(id,name){ name=name||'待辦行程'; const dk=name==='工作事項'?'截止日':'日期'; const t=get(name,id); if(t&&t.狀態!=='完成'){ t.狀態='完成'; const r={'每天':[0,1],'每週':[0,7],'每月':[1,0],'每年':[12,0]}[t.重複]; if(r&&t[dk]){ const n=Object.assign({},t,{狀態:'未開始',[dk]:shift(t[dk],r[0],r[1])}); delete n.ID; if(!t['重複結束']||n[dk]<=t['重複結束']) upsert(name,n);} } return snap(); },
