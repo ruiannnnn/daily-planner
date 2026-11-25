@@ -3147,9 +3147,11 @@ async function uploadWardPhotos(id, files){
       const cat = (clothes().find(c=>c.ID===id)||{})['分類'] || '';
       const f = await prepClothImage(list[i], cat); if (!f) continue;
       toast(`上傳照片${list.length>1?' '+(i+1)+'/'+list.length:''}…`);
-      const full = await resizeImage(f, 1600, 0.85);
+      const png = f.type === 'image/png';
+      const full = png ? await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(f); }) : await resizeImage(f, 1600, 0.85);
       const thumb = await makeThumb(f, true);
-      WPH.push(await call('uploadPhoto2', '衣櫃照片', {'衣物ID': id}, full.split(',')[1], thumb, (list[i].name || 'cloth').replace(/\.[^.]+$/,'') + '.jpg'));
+      const ph = await call('uploadPhoto2', '衣櫃照片', {'衣物ID': id}, full.split(',')[1], thumb, (list[i].name || 'cloth').replace(/\.[^.]+$/,'') + (png ? '.png' : '.jpg'));
+      WPH.push(ph); if (png) fzCutStore(ph['檔案ID'], full);
       okN++;
     } catch(e) { err = String(e && e.message || e).replace(/^Error:\s*/,''); break; }
   }
@@ -3321,7 +3323,8 @@ function fzAdd(id, quiet, form){ const c = clothes().find(x=>x.ID===id); if (!c)
   const p = FZ_POS[c['分類']] || [50,50,30]; L.push({id, x:Math.min(90,p[0]+n*6), y:Math.min(92,p[1]+n*5), w:p[2], r:0, z}); fzSave(); if (!quiet) render(); }
 const FZH = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></svg>';
 function fzItemHtml(it, i){ const c = clothes().find(x=>x.ID===it.id); if (!c) return '';
-  return `<div class="fz ${it.h?'fixh':''} ${FZ_SEL===i?'sel':''}" data-k="${i}" style="left:${it.x}%;top:${it.y}%;width:${it.w}%;${it.h?'height:'+it.h+'%;':''}z-index:${it.z||1};transform:translate(-50%,-50%) rotate(${it.r||0}deg)">${clothImg(c)}${['l','r','t','b'].map(h=>`<span class="fzh ${h}" data-h="${h}">${FZH}</span>`).join('')}</div>`; }
+  const ph = clothCover(it.id);
+  return `<div class="fz ${it.h?'fixh':''} ${FZ_SEL===i?'sel':''}" data-k="${i}" data-fid="${esc(ph&&ph['檔案ID']||'')}" style="left:${it.x}%;top:${it.y}%;width:${it.w}%;${it.h?'height:'+it.h+'%;':''}z-index:${it.z||1};transform:translate(-50%,-50%) rotate(${it.r||0}deg)">${clothImg(c)}${['l','r','t','b'].map(h=>`<span class="fzh ${h}" data-h="${h}">${FZH}</span>`).join('')}</div>`; }
 let FZ_SEL = -1;
 function freeView(){
   const L = fzLoad();
@@ -3339,7 +3342,7 @@ function fzLayoutFor(o){ const a = fzParse(o); if (!a) return null; const ids = 
   const keep = a.filter(x => ids.includes(x.id) && clothes().some(c=>c.ID===x.id)); const saveFZ = fzLoad(); FZ = keep.map(x=>Object.assign({}, x));
   const realSave = fzSave; fzSave = function(){}; try { ids.filter(id => !keep.some(x=>x.id===id)).forEach(id => fzAdd(id, true, form)); } finally { fzSave = realSave; }
   const out = FZ; FZ = saveFZ; out.form = form; return out; }
-function fzStatic(L, cls){ setTimeout(fzCutAll, 0); return `<div class="fzb fzs ${cls||''}">${L.form ? FORM_SVG : ''}${L.map(it => { const c = clothes().find(x=>x.ID===it.id); return c ? `<div class="fz ${it.h?'fixh':''}" style="left:${it.x}%;top:${it.y}%;width:${it.w}%;${it.h?'height:'+it.h+'%;':''}z-index:${it.z||1};transform:translate(-50%,-50%) rotate(${it.r||0}deg)">${clothImg(c)}</div>` : ''; }).join('')}</div>`; }
+function fzStatic(L, cls){ setTimeout(fzCutAll, 0); return `<div class="fzb fzs ${cls||''}">${L.form ? FORM_SVG : ''}${L.map(it => { const c = clothes().find(x=>x.ID===it.id); return c ? `<div class="fz ${it.h?'fixh':''}" data-fid="${esc((clothCover(it.id)||{})['檔案ID']||'')}" style="left:${it.x}%;top:${it.y}%;width:${it.w}%;${it.h?'height:'+it.h+'%;':''}z-index:${it.z||1};transform:translate(-50%,-50%) rotate(${it.r||0}deg)">${clothImg(c)}</div>` : ''; }).join('')}</div>`; }
 /* 去背：把照片外圍的白底（和邊緣相連的白色）變透明，白色衣服本身不受影響 */
 const FZ_CUT = {};
 function fzCutout(src){
@@ -3349,7 +3352,11 @@ function fzCutout(src){
       const sc = Math.min(1, 700 / Math.max(im.naturalWidth, im.naturalHeight)), W = Math.max(1, Math.round(im.naturalWidth*sc)), H = Math.max(1, Math.round(im.naturalHeight*sc));
       const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d'); cx.drawImage(im, 0, 0, W, H);
       const id = cx.getImageData(0, 0, W, H), a = id.data, N = W*H;
-      const bgLike = i => { const r = a[i*4], g = a[i*4+1], b = a[i*4+2], mx = Math.max(r,g,b), mn = Math.min(r,g,b); return a[i*4+3] < 20 || (mn > 228 && mx - mn < 22); };
+      /* 先看照片外圍的白有多白：純白底（去背後補白）用很嚴格的標準，白衣服才不會被吃掉 */
+      const ring = []; for (let x = 0; x < W; x += 2) { ring.push(Math.min(a[x*4], a[x*4+1], a[x*4+2])); const j = (H-1)*W + x; ring.push(Math.min(a[j*4], a[j*4+1], a[j*4+2])); }
+      for (let y = 0; y < H; y += 2) { const j = y*W, k2 = y*W + W-1; ring.push(Math.min(a[j*4], a[j*4+1], a[j*4+2]), Math.min(a[k2*4], a[k2*4+1], a[k2*4+2])); }
+      ring.sort((p, q) => p - q); const med = ring[Math.floor(ring.length * 0.5)] || 255, thr = med >= 250 ? 244 : Math.max(200, med - 14), spr = med >= 250 ? 12 : 22;
+      const bgLike = i => { const r = a[i*4], g = a[i*4+1], b = a[i*4+2], mx = Math.max(r,g,b), mn = Math.min(r,g,b); return a[i*4+3] < 20 || (mn > thr && mx - mn < spr); };
       let edgeBg = 0; for (let x = 0; x < W; x++) { edgeBg += bgLike(x) + bgLike((H-1)*W + x); } for (let y = 0; y < H; y++) { edgeBg += bgLike(y*W) + bgLike(y*W + W-1); }
       if (edgeBg < (W+H) * 0.6) return res(src);   /* 外圍大多不是白底（例如一般照片），不處理 */
       const seen = new Uint8Array(N), q = new Int32Array(N); let qh = 0, qt = 0;
@@ -3360,15 +3367,30 @@ function fzCutout(src){
       /* 邊緣柔化：緊貼背景的淺色像素半透明，去掉白邊 */
       for (let i = 0; i < N; i++) { if (seen[i]) continue; const x = i % W;
         const nb = (x > 0 && seen[i-1]) || (x < W-1 && seen[i+1]) || (i >= W && seen[i-W]) || (i < N-W && seen[i+W]);
-        if (nb) { const l = (a[i*4] + a[i*4+1] + a[i*4+2]) / 3; if (l > 200) a[i*4+3] = Math.round(255 * Math.max(0.15, (255 - l) / 55)); } }
+        if (nb) { const l = (a[i*4] + a[i*4+1] + a[i*4+2]) / 3; if (l > thr) a[i*4+3] = Math.round(255 * Math.max(0.35, (255 - l) / Math.max(8, 255 - thr + 6))); } }
       cx.putImageData(id, 0, 0); res(cv.toDataURL('image/png'));
     } catch(e) { res(src); } };
     im.onerror = () => res(src); im.src = src;
   });
 }
+/* 去背 PNG 原圖：存在這台裝置（IndexedDB），之後打開不用再下載 */
+const FZ_PNG = {}; let fzDB = null;
+function fzIdb(){ if (fzDB) return fzDB; fzDB = new Promise(res => { try { const r = indexedDB.open('dp-cutout', 1); r.onupgradeneeded = () => r.result.createObjectStore('c'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); } catch(e) { res(null); } }); return fzDB; }
+async function fzCutGet(fid){ if (fid in FZ_PNG) return FZ_PNG[fid]; const db = await fzIdb(); if (!db) return undefined;
+  return new Promise(res => { try { const q = db.transaction('c').objectStore('c').get(fid); q.onsuccess = () => { if (q.result !== undefined) FZ_PNG[fid] = q.result; res(q.result); }; q.onerror = () => res(undefined); } catch(e) { res(undefined); } }); }
+async function fzCutStore(fid, url){ if (!fid) return; let v = url || '';
+  if (v) v = await new Promise(res => { const im = new Image(); im.onload = () => { const k = Math.min(1, 640 / Math.max(im.naturalWidth, im.naturalHeight)); const c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth*k); c.height = Math.round(im.naturalHeight*k); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL('image/png')); }; im.onerror = () => res(''); im.src = url; });
+  FZ_PNG[fid] = v; const db = await fzIdb(); if (db) try { db.transaction('c', 'readwrite').objectStore('c').put(v, fid); } catch(e) {} return v; }
+const FZ_ASK = {};
+function fzRealCut(fid){ if (!fid) return Promise.resolve(''); if (FZ_ASK[fid]) return FZ_ASK[fid];
+  return FZ_ASK[fid] = fzCutGet(fid).then(v => v !== undefined ? v : call('getClothCutout', fid).then(u => fzCutStore(fid, u)).catch(() => '')); }
 function fzCutAll(){ document.querySelectorAll('.fz img:not([data-cut])').forEach(img => { const src = img.getAttribute('src'); img.dataset.cut = 1; if (!src) return;
-  if (FZ_CUT[src] && FZ_CUT[src].done) { img.src = FZ_CUT[src].done; return; }
-  img.style.opacity = '0'; fzCutout(src).then(out => { FZ_CUT[src].done = out; img.src = out; img.style.opacity = ''; }); }); }
+  const fid = (img.closest('.fz') || {dataset:{}}).dataset.fid || '';
+  if (FZ_PNG[fid]) { img.src = FZ_PNG[fid]; return; }
+  if (FZ_PNG[fid] === '' && FZ_CUT[src] && FZ_CUT[src].done) { img.src = FZ_CUT[src].done; return; }
+  img.style.opacity = '0';
+  fzRealCut(fid).then(png => png ? png : fzCutout(src).then(out => (FZ_CUT[src].done = out)))
+    .then(out => { if (img.isConnected) { img.src = out; img.style.opacity = ''; } }); }); }
 function fzSelect(i){ FZ_SEL = i; document.querySelectorAll('#fzBoard .fz').forEach(el => el.classList.toggle('sel', +el.dataset.k === i)); const t = $('#fzTools'); if (t) t.style.display = i >= 0 ? '' : 'none'; }
 function fzApply(el, it){ el.style.left = it.x+'%'; el.style.top = it.y+'%'; el.style.width = it.w+'%'; el.style.height = it.h ? it.h+'%' : ''; el.classList.toggle('fixh', !!it.h); el.style.zIndex = it.z||1; el.style.transform = `translate(-50%,-50%) rotate(${it.r||0}deg)`; }
 function fzInit(){
@@ -3503,11 +3525,10 @@ async function prepClothImage(file, cat){
     for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) { const a = d[(y*c.width+x)*4+3]; if (a < 200) clear++; if (a > 24) { if (x<x0) x0=x; if (x>x1) x1=x; if (y<y0) y0=y; if (y>y1) y1=y; } }
     if (clear > c.width*c.height*0.04 && x1 > x0) {
       /* 去背圖：裁掉透明的地方，置中放進正方形白底 */
-      const sx = x0/k, sy = y0/k, sw = (x1-x0+1)/k, sh = (y1-y0+1)/k, side = Math.max(sw, sh) * 1.14, N = Math.min(1400, Math.round(side));
+      const sx = x0/k, sy = y0/k, sw = (x1-x0+1)/k, sh = (y1-y0+1)/k, side = Math.max(sw, sh) * 1.14, N = Math.min(1000, Math.round(side));
       const o = document.createElement('canvas'); o.width = o.height = N; const og = o.getContext('2d'), s = N/side;
-      og.fillStyle = '#FFFFFF'; og.fillRect(0, 0, N, N);
       og.drawImage(im, sx, sy, sw, sh, (N - sw*s)/2, (N - sh*s)/2, sw*s, sh*s);
-      return await canvasBlob(o);
+      return await new Promise(res => o.toBlob(b => res(b), 'image/png'));   /* 保留透明背景 */
     }
     return await cropUI(im, cat, file);
   } finally { URL.revokeObjectURL(u); }
@@ -5124,7 +5145,7 @@ const Local = (() => {
     videoStart(){ return 'https:\/\/www.googleapis.com/upload/drive/mock'; },
     videoChunk(u, b64, s0, total){ const n = atob(b64).length; return s0 + n >= total ? {done:true, id:'VID'+(seq++)} : {done:false}; },
     videoDone(pid, fid, thumb, name){ const p={ID:'PM'+(seq++),'貼文ID':pid,'檔案ID':fid,'縮圖':thumb,'類型':'影片','檔名':name,'上傳時間':new Date().toISOString()}; pmedia.push(p); return p; },
-    getMediaFull(){ throw new Error('預覽模式沒有原圖'); },
+    getMediaFull(){ throw new Error('預覽模式沒有原圖'); }, getClothCutout(fid){ return (window.__CUT||{})[fid] || ''; },
     uploadPhoto2(t, f, full, thumb, name){ const p=Object.assign({ID:'TP'+(seq++),'檔案ID':'','縮圖':thumb,'說明':'','上傳時間':new Date().toISOString()}, f); (t==='旅遊照片'?tphotos:t==='衣櫃照片'?wphotos:t==='美甲照片'?nphotos:t==='演出照片'?sphotos:t==='筆記照片'?nimgs:photos).push(p); return p; },
     setPhotoCover(t, id, g){ return true; },
     geocodePlace(q){ const k=Object.keys(GEO).find(x=>q.includes(x)); return k ? [Object.assign({'名稱':q,'地址':GEO[k][4]},{'城市':GEO[k][2],'國家':GEO[k][3],'緯度':GEO[k][0],'經度':GEO[k][1]})] : []; },
