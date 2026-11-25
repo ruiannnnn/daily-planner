@@ -38,7 +38,10 @@ window.DPCam = (function () {
     '#dpcam .bub::before,#dpcam .bub::after{content:"";position:absolute;background:rgba(255,255,255,.5)}#dpcam .bub::before{left:50%;top:-10px;bottom:-10px;width:1px}#dpcam .bub::after{top:50%;left:-10px;right:-10px;height:1px}' +
     '#dpcam .bub i{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 0 4px rgba(0,0,0,.4)}#dpcam .bub.ok{border-color:#8BD3A0}#dpcam .bub.ok i{background:#8BD3A0}' +
     '#dpcam .tb .fl{font-size:13px;width:auto;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.14);height:auto}#dpcam .tb .fl.on{background:#F6D36B;color:#3a2a00}#dpcam .tb .fl.na{opacity:.4}' +
-    '#dpcam .pv canvas{max-width:90%;max-height:90%;touch-action:none}' +
+    '#dpcam .pv canvas{max-width:90%;max-height:90%;touch-action:none}#dpcam .pv.ed{touch-action:none}' +
+    '#dpcam #edw{position:absolute;inset:0;display:grid;place-items:center;transform-origin:0 0}' +
+    '#dpcam .zm{position:absolute;left:10px;top:10px;display:flex;gap:6px;align-items:center}#dpcam .zm button{border:0;border-radius:99px;padding:5px 11px;background:rgba(0,0,0,.55);color:#fff;font-size:12px}' +
+    '#dpcam .tools button{padding:7px 0;font-size:11px}' +
     '#dpcam .tools{display:flex;gap:6px;padding:10px 12px 0;justify-content:center}#dpcam .tools button{flex:1;border:0;border-radius:12px;padding:7px 2px;font-size:12px;background:rgba(255,255,255,.12);color:#fff;display:flex;flex-direction:column;align-items:center;gap:2px;max-width:76px}#dpcam .tools button b{font-size:17px;font-weight:400;line-height:1.1}#dpcam .tools button.on{background:#F0A497;color:#2B2925}#dpcam .tools button:disabled{opacity:.35}' +
     '#dpcam .rot{display:flex;align-items:center;gap:8px;padding:8px 18px 0;font-size:12px}#dpcam .rot input{flex:1;accent-color:#F0A497}#dpcam .rot button{border:0;border-radius:99px;padding:4px 10px;background:rgba(255,255,255,.16);color:#fff;font-size:12px}' +
     '#dpcam .msg{font-size:12.5px;text-align:center;opacity:.85;padding:8px 18px 0;line-height:1.6}';
@@ -115,6 +118,9 @@ window.DPCam = (function () {
     else if (x === 'usecut') { var cv = root.querySelector('#ed'); (cv ? new Promise(function (r) { cv.toBlob(r, 'image/png'); }) : Promise.resolve(cutBlob)).then(toData).then(function (d) { close({ kind: 'cut', data: d }); }); }
     else if (x === 'tap' || x === 'brush' || x === 'straight') edTool(x);
     else if (x === 'sym') edSym();
+    else if (x === 'speck') edSpeck();
+    else if (x === 'zin' || x === 'zout') edZoomBy(x === 'zin' ? 1.5 : 1 / 1.5);
+    else if (x === 'zfit') edView(1, 0, 0);
     else if (x === 'undo') edUndo();
     else if (x === 'auto') edAuto();
     else if (x === 'useraw') toData(rawBlob).then(function (d) { close({ kind: 'raw', data: d, pending: false }); });
@@ -167,10 +173,11 @@ window.DPCam = (function () {
     if (!root) return;
     var u = URL.createObjectURL(ok ? cutBlob : rawBlob);
     root.innerHTML = '<div class="tb"><button data-x="close" aria-label="關閉">✕</button><span>' + (ok ? '去背預覽' : '去背失敗') + '</span><span style="width:36px"></span></div>' +
-      '<div class="view"><div class="pv ' + (ok ? 'chk' : 'light') + '">' + (ok ? '<canvas id="ed"></canvas>' : '<img src="' + u + '">') + '</div>' +
+      '<div class="view"><div class="pv ' + (ok ? 'chk ed' : 'light') + '">' + (ok ? '<div id="edw"><canvas id="ed"></canvas></div>' : '<img src="' + u + '">') + '</div>' +
+      (ok ? '<div class="zm"><button data-x="zout">－</button><button data-x="zfit" class="zl">100%</button><button data-x="zin">＋</button></div>' : '') +
       (ok ? '<div class="bgsw"><button data-bg="chk" class="on" style="background:repeating-conic-gradient(#bbb 0 25%,#fff 0 50%) 0 0/10px 10px"></button><button data-bg="dark" style="background:#3E3A39"></button><button data-bg="light" style="background:#FFFCF6"></button></div>' : '') + '</div>' +
-      (ok ? '<div class="tools"><button data-x="tap"><b>◎</b>點選去除</button><button data-x="brush"><b>⌫</b>橡皮擦</button><button data-x="straight"><b>⟲</b>扶正</button><button data-x="sym"><b>◫</b>修齊左右</button><button data-x="undo" disabled><b>↶</b>復原</button></div><div class="rot" style="display:none"><span>傾斜</span><input type="range" min="-15" max="15" step="0.5" value="0"><span class="rv" style="width:34px;text-align:right">0°</span><button data-x="auto">自動</button></div>' : '') +
-      '<div class="msg">' + (ok ? '衣架、掛勾：按「點選去除」再點一下它；沒去乾淨的用橡皮擦塗掉' : '這張沒辦法自動去背' + (/fetch|import|network|load/i.test(err || '') ? '（去背工具下載失敗，請確認網路）' : '') + '<br>可以下載原圖用美圖秀秀去背<br><span style="font-size:10.5px;opacity:.6">' + esc(String(err || '').slice(0, 80)) + '</span>') + '</div>' +
+      (ok ? '<div class="tools"><button data-x="tap"><b>◎</b>點選去除</button><button data-x="brush"><b>⌫</b>橡皮擦</button><button data-x="straight"><b>⟲</b>扶正</button><button data-x="sym"><b>◫</b>修齊左右</button><button data-x="speck"><b>✧</b>清碎屑</button><button data-x="undo" disabled><b>↶</b>復原</button></div><div class="rot" style="display:none"><span>傾斜</span><input type="range" min="-15" max="15" step="0.5" value="0"><span class="rv" style="width:34px;text-align:right">0°</span><button data-x="auto">自動</button></div>' : '') +
+      '<div class="msg">' + (ok ? '兩指放大縮小；衣架用「點選去除」點一下，線和汙點按「清碎屑」' : '這張沒辦法自動去背' + (/fetch|import|network|load/i.test(err || '') ? '（去背工具下載失敗，請確認網路）' : '') + '<br>可以下載原圖用美圖秀秀去背<br><span style="font-size:10.5px;opacity:.6">' + esc(String(err || '').slice(0, 80)) + '</span>') + '</div>' +
       '<div class="acts">' + (ok ? '<button class="main" data-x="usecut">用這張（去背版）</button>' : '') +
       '<button data-x="download">下載原圖<br><span style="font-size:11px;opacity:.75">先存原圖、標記待去背</span></button><button data-x="retake">重拍</button>' +
       (ok ? '' : '<button class="main" data-x="useraw" style="background:rgba(255,255,255,.22);color:#fff">直接用原圖（不去背）</button>') + '</div>';
@@ -184,8 +191,11 @@ window.DPCam = (function () {
       var cv = root && root.querySelector('#ed'); if (!cv) return;
       cv.width = im.naturalWidth; cv.height = im.naturalHeight; var g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0);
       E = { cv: cv, g: g, tool: null, undo: [], base: null, rot: 0 };
-      cv.addEventListener('pointerdown', edDown); cv.addEventListener('pointermove', edMove);
-      cv.addEventListener('pointerup', edUp); cv.addEventListener('pointercancel', edUp);
+      E.V = { z: 1, tx: 0, ty: 0 }; E.pts = {}; E.pv = root.querySelector('.pv');
+      E.pv.addEventListener('pointerdown', edDown); E.pv.addEventListener('pointermove', edMove);
+      E.pv.addEventListener('pointerup', edUp); E.pv.addEventListener('pointercancel', edUp);
+      E.pv.addEventListener('touchmove', function (e) { if (e.cancelable) e.preventDefault(); }, { passive: false });
+      E.pv.addEventListener('gesturestart', function (e) { e.preventDefault(); });
       var r = root.querySelector('.rot input'); r.oninput = function () { edRotate(+r.value); }; r.onchange = function () { E.base = null; };
     }; im.src = url;
   }
@@ -193,19 +203,55 @@ window.DPCam = (function () {
   function edUndo() { if (!E || !E.undo.length) return; var d = E.undo.pop(); E.cv.width = d.width; E.cv.height = d.height; E.g.putImageData(d, 0, 0); E.base = null; E.rot = 0;
     var r = root.querySelector('.rot input'); r.value = 0; root.querySelector('.rv').textContent = '0°'; root.querySelector('[data-x=undo]').disabled = !E.undo.length; }
   function edTool(t) {
+    if (E && E.drag) E.drag = false;
     if (!E) return; E.tool = E.tool === t ? null : t;
     root.querySelectorAll('.tools [data-x]').forEach(function (b) { b.classList.toggle('on', b.dataset.x === E.tool); });
     root.querySelector('.rot').style.display = E.tool === 'straight' ? 'flex' : 'none';
-    var m = root.querySelector('.msg'); m.textContent = E.tool === 'tap' ? '點一下要去掉的東西（衣架、掛勾、線），同顏色相連的部分會一起去掉' : E.tool === 'brush' ? '用手指塗掉不要的地方' : E.tool === 'straight' ? '拉動滑桿把衣服轉正，或按「自動」' : '衣架、掛勾：按「點選去除」再點一下它；沒去乾淨的用橡皮擦塗掉';
+    var m = root.querySelector('.msg'); m.textContent = E.tool === 'tap' ? '點一下要去掉的東西（衣架、掛勾、線），同顏色相連的部分會一起去掉' : E.tool === 'brush' ? '用手指塗掉不要的地方；兩指可以放大縮小' : E.tool === 'straight' ? '拉動滑桿把衣服轉正，或按「自動」' : '兩指放大縮小、單指拖動畫面；衣架用「點選去除」，殘留用橡皮擦';
   }
   function edPt(e) { var r = E.cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * E.cv.width / r.width, y: (e.clientY - r.top) * E.cv.height / r.height, k: E.cv.width / r.width }; }
+  /* 兩指捏合縮放、拖曳移動；單指照目前的工具動作（沒選工具時單指可以拖動畫面） */
+  function edView(z, tx, ty) { E.V = { z: z, tx: tx, ty: ty }; root.querySelector('#edw').style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + z + ')'; var l = root.querySelector('.zl'); if (l) l.textContent = Math.round(z * 100) + '%'; }
+  function edZoomBy(f) { var r = E.pv.getBoundingClientRect(), mx = r.width / 2, my = r.height / 2, z = Math.max(1, Math.min(8, E.V.z * f)); if (z === 1) return edView(1, 0, 0); edView(z, mx - (mx - E.V.tx) * z / E.V.z, my - (my - E.V.ty) * z / E.V.z); }
+  function edRel(e) { var r = E.pv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
   function edDown(e) {
-    if (!E || !E.tool || E.tool === 'straight') return; e.preventDefault(); var p = edPt(e);
-    if (E.tool === 'tap') { edPush(); edFill(Math.round(p.x), Math.round(p.y)); return; }
-    edPush(); E.drag = true; E.last = p; edDab(p, p);
+    if (!E) return; e.preventDefault(); try { E.pv.setPointerCapture(e.pointerId); } catch (er) {}
+    E.pts[e.pointerId] = edRel(e); var ids = Object.keys(E.pts);
+    if (ids.length === 2) {   /* 第二根手指放下：取消剛開始的筆畫，改成縮放 */
+      if (E.drag) { E.drag = false; var d = E.undo.pop(); if (d) { E.g.putImageData(d, 0, 0); root.querySelector('[data-x=undo]').disabled = !E.undo.length; } }
+      var a = E.pts[ids[0]], b = E.pts[ids[1]]; E.pinch = { d: Math.hypot(b.x - a.x, b.y - a.y) || 1, m: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, V: Object.assign({}, E.V) }; E.tapOk = false; return;
+    }
+    if (ids.length > 2) return;
+    E.start = { p: E.pts[e.pointerId], V: Object.assign({}, E.V) }; E.tapOk = true; E.downE = { clientX: e.clientX, clientY: e.clientY };
+    if (E.tool === 'brush') { edPush(); E.drag = true; E.last = edPt(e); edDab(E.last, E.last); }
   }
-  function edMove(e) { if (!E || !E.drag) return; e.preventDefault(); var p = edPt(e); edDab(E.last, p); E.last = p; }
-  function edUp() { if (E) E.drag = false; }
+  function edMove(e) {
+    if (!E || !E.pts[e.pointerId]) return; e.preventDefault(); var p = edRel(e); E.pts[e.pointerId] = p; var ids = Object.keys(E.pts);
+    if (ids.length >= 2 && E.pinch) { var a = E.pts[ids[0]], b = E.pts[ids[1]], d = Math.hypot(b.x - a.x, b.y - a.y), m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, P = E.pinch;
+      var z = Math.max(1, Math.min(8, P.V.z * d / P.d)); edView(z, m.x - (P.m.x - P.V.tx) * z / P.V.z, m.y - (P.m.y - P.V.ty) * z / P.V.z); return; }
+    if (!E.start) return;
+    if (Math.abs(p.x - E.start.p.x) + Math.abs(p.y - E.start.p.y) > 6) E.tapOk = false;
+    if (E.drag) { var q = edPt(e); edDab(E.last, q); E.last = q; return; }
+    if (E.tool !== 'brush' && E.V.z > 1) edView(E.V.z, E.start.V.tx + p.x - E.start.p.x, E.start.V.ty + p.y - E.start.p.y);
+  }
+  function edUp(e) {
+    if (!E) return; var was = !!E.pts[e.pointerId]; delete E.pts[e.pointerId]; var n = Object.keys(E.pts).length;
+    if (n === 1 && E.pinch) { E.pinch = null; var id = Object.keys(E.pts)[0]; E.start = { p: E.pts[id], V: Object.assign({}, E.V) }; return; }
+    if (n) return; E.pinch = null; E.drag = false;
+    if (was && E.tapOk && E.tool === 'tap' && E.start) { edPush(); var q = edPt(E.downE); edFill(Math.round(q.x), Math.round(q.y)); }
+    E.start = null;
+  }
+  /* 清碎屑：只留下衣服本體（最大的一塊），去掉旁邊零碎的線、汙點和半透明的殘影 */
+  function edSpeck() {
+    if (!E) return; edPush(); E.base = null; var W = E.cv.width, H = E.cv.height, id = E.g.getImageData(0, 0, W, H), a = id.data, lab = new Int32Array(W * H), q = new Int32Array(W * H), sizes = [0], n = 0;
+    for (var i = 0; i < W * H; i++) if (a[i * 4 + 3] < 50) a[i * 4 + 3] = 0;
+    for (var s0 = 0; s0 < W * H; s0++) { if (lab[s0] || !a[s0 * 4 + 3]) continue; n++; var h = 0, t = 0, c = 0; lab[s0] = n; q[t++] = s0;
+      while (h < t) { var j = q[h++], x = j % W; c++; var nb = [x > 0 ? j - 1 : -1, x < W - 1 ? j + 1 : -1, j >= W ? j - W : -1, j < W * H - W ? j + W : -1];
+        for (var k = 0; k < 4; k++) { var m = nb[k]; if (m >= 0 && !lab[m] && a[m * 4 + 3]) { lab[m] = n; q[t++] = m; } } } sizes.push(c); }
+    var big = Math.max.apply(null, sizes), keep = sizes.map(function (c) { return c >= big * 0.06; }), cut = 0;
+    for (var i2 = 0; i2 < W * H; i2++) if (lab[i2] && !keep[lab[i2]]) { a[i2 * 4 + 3] = 0; cut++; }
+    E.g.putImageData(id, 0, 0); edMsg(cut ? '已清掉旁邊的碎屑和殘影' : '沒有找到碎屑');
+  }
   function edDab(a, b) { var g = E.g; g.save(); g.globalCompositeOperation = 'destination-out'; g.lineCap = 'round'; g.lineWidth = 26 * a.k; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x + 0.01, b.y); g.stroke(); g.restore(); }
   /* 點選去除：從點到的地方開始，把顏色相近、連在一起的不透明像素都變透明，再把邊緣的雜色一起清掉 */
   function edFill(x0, y0) {
