@@ -225,6 +225,7 @@ svg.spark{width:100%;height:70px;display:block}
 .fz img,.fz .wph-none{display:block;width:100%;height:auto;pointer-events:none;-webkit-user-drag:none}
 .fz .wph-none{aspect-ratio:1;border-radius:10px;display:grid;place-items:center;font-size:12px;color:#8C8475}
 .fz.sel{outline:1.5px dashed #8C8475;outline-offset:3px;border-radius:4px}
+.fzform{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
 .fzb.fzs{touch-action:auto;pointer-events:none;border-radius:14px}
 .wo-board{position:relative;margin:0 0 12px}
 .wo-board .btn{position:absolute;right:8px;bottom:8px;font-size:12.5px;padding:4px 10px;background:var(--card)}
@@ -3028,7 +3029,7 @@ function viewOutfit(id){
   const o = outfits().find(x=>x.ID===id); if (!o) return; if (!WPH) loadWardPhotos(); CUR_OUTFIT = id;
   const items = outfitItems(o);
   openSheet(`<h2 style="margin-bottom:4px">${esc(o['名稱']||'穿搭')}</h2><div class="small muted" style="margin-bottom:12px">${esc([o['場合'], o['季節'], items.length+' 件'].filter(Boolean).join(' · '))}</div>
-    ${(()=>{ const L = fzLayoutFor(o); return L ? `<div class="wo-board">${fzStatic(L)}<button class="btn" data-act="fzopen" data-id="${esc(id)}">調整排版</button></div>` : `<div style="margin:0 0 10px"><button class="btn" data-act="fzopen" data-id="${esc(id)}">${icon('<path d="M4 4h7v7H4zM13 13h7v7h-7z"/>',14)} 用自由配衣排版</button></div>`; })()}
+    ${(()=>{ const L = fzLayoutFor(o); return L ? `<div class="wo-board">${fzStatic(L)}<button class="btn" data-act="fzopen" data-id="${esc(id)}">調整排版</button></div>` : `<div style="margin:0 0 10px"><button class="btn" data-act="fzopen" data-id="${esc(id)}">${icon('<path d="M4 4h7v7H4zM13 13h7v7h-7z"/>',14)} 用自由配衣排版</button> <button class="btn" data-act="fzopenform" data-id="${esc(id)}">穿到人台上</button></div>`; })()}
     ${inspBlock(o, items)}
     <div class="wgrid" style="grid-template-columns:repeat(2,1fr)">${items.map(r=>`<button class="witem" data-act="wview" data-id="${esc(r.ID)}"><div class="wimg">${clothImg(r)}</div><div class="wname">${esc(r['名稱'])}</div><div class="wmeta">${esc(r['分類']||'')}</div></button>`).join('')}</div>
     ${o['備註']?`<div class="lrow" style="margin-top:12px"><span class="lk">備註</span><div style="white-space:pre-wrap">${esc(o['備註'])}</div></div>`:''}
@@ -3280,20 +3281,36 @@ const DM_OPTIONAL = ['外套','內搭','包包','配件'];
 function dmEnabled(){ let on = null; try { on = JSON.parse(localStorage.getItem('dmRows')||'null'); } catch(e){} return Array.isArray(on) ? on : ['上衣','下身','鞋子']; }
 function dmItems(row){ const cats = (DM_ROWS.find(r=>r[0]===row)||[])[1]||[]; const list = clothes().filter(r=>r['狀態']!=='已淘汰' && cats.includes(r['分類'])); return DM_OPTIONAL.includes(row) ? [{ID:'', '名稱':'不搭'+row}].concat(list) : list; }
 function dmIsDress(){ const t = clothes().find(c=>c.ID===(st.dm||{})['上衣']); return !!(t && t['分類']==='洋裝'); }
-function dmPicked(){ if (dmMode()==='free') return [...new Set(fzLoad().map(x=>x.id))]; const on = dmEnabled(), dress = dmIsDress(); return on.filter(r => !(r==='下身' && dress)).map(r => (st.dm||{})[r]).filter(Boolean); }
+function dmPicked(){ if (dmMode()!=='swipe') return [...new Set(fzLoad().map(x=>x.id))]; const on = dmEnabled(), dress = dmIsDress(); return on.filter(r => !(r==='下身' && dress)).map(r => (st.dm||{})[r]).filter(Boolean); }
 function dmStatus(){
   const ids = dmPicked(), key = ids.slice().sort().join(',');
   const hit = key && outfits().find(o => String(o['衣物']||'').split(',').filter(Boolean).sort().join(',') === key);
   return ids.length ? (hit ? `這套已經存過：<b>${esc(hit['名稱']||'穿搭')}</b>` : `已選 ${ids.length} 件 · 還沒存成穿搭`) : '左右滑動挑衣服';
 }
-function dmMode(){ try { return localStorage.getItem('dmMode') === 'free' ? 'free' : 'swipe'; } catch(e) { return 'swipe'; } }
-function dmModeBar(){ const m = dmMode(); return `<div class="dmmode"><div class="mseg"><button class="${m==='swipe'?'on':''}" data-act="dmmode" data-v="swipe">滑動配衣</button><button class="${m==='free'?'on':''}" data-act="dmmode" data-v="free">自由配衣</button></div></div>`; }
+function dmMode(){ try { const m = localStorage.getItem('dmMode'); return m === 'free' || m === 'form' ? m : 'swipe'; } catch(e) { return 'swipe'; } }
+function dmModeBar(){ const m = dmMode(); return `<div class="dmmode"><div class="mseg">${[['swipe','滑動'],['free','自由'],['form','人台']].map(([k,t])=>`<button class="${m===k?'on':''}" data-act="dmmode" data-v="${k}">${t}配衣</button>`).join('')}</div></div>`; }
+/* 人台（亞麻半身人台＋木腳架），座標 200×410，畫在畫布中間 */
+const FORM_SVG = (()=>{ const cr = (pts) => { const n = pts.length; let d = 'M'+pts[0].join(','); for (let i = 0; i < n; i++) { const p0 = pts[(i-1+n)%n], p1 = pts[i], p2 = pts[(i+1)%n], p3 = pts[(i+2)%n];
+    d += ' C'+(p1[0]+(p2[0]-p0[0])/6).toFixed(1)+','+(p1[1]+(p2[1]-p0[1])/6).toFixed(1)+' '+(p2[0]-(p3[0]-p1[0])/6).toFixed(1)+','+(p2[1]-(p3[1]-p1[1])/6).toFixed(1)+' '+p2.join(','); } return d+' Z'; };
+  const L = [[89,40],[89,56],[80,62],[68,67],[62,74],[61,84],[65,96],[66,108],[70,128],[76,150],[74,168],[66,186],[64,198],[70,206],[100,209]];
+  const T = cr(L.concat(L.slice().reverse().map(([x,y])=>[200-x,y])));
+  return `<svg class="fzform" viewBox="0 0 200 410" preserveAspectRatio="xMidYMid meet"><path d="M98,206 L98,360 L102,360 L102,206Z" fill="#9C7B5E"/><path d="M100,358 L66,396 M100,358 L134,396 M100,358 L100,400" stroke="#9C7B5E" stroke-width="4.5" stroke-linecap="round"/><circle cx="100" cy="358" r="5" fill="#9C7B5E"/><path d="${T}" fill="#E9DFCF" stroke="#BBA98F" stroke-width="1.4"/><path d="M84,74 C80,110 86,140 88,152 C86,170 84,190 84,206 M116,74 C120,110 114,140 112,152 C114,170 116,190 116,206 M76,150 Q100,156 124,150" fill="none" stroke="#CDBDA4" stroke-width="1.2"/><ellipse cx="100" cy="40" rx="11" ry="3.6" fill="#9C7B5E"/><path d="M95,40 L95,30 Q100,26 105,30 L105,40" fill="#9C7B5E"/></svg>`; })();
+/* 人台上的位置：x 中心、top 上緣（都用人台座標）、w 寬度、z 圖層 */
+const FORM_POS = {'上衣':[100,54,150,3],'內搭':[100,58,134,2],'洋裝':[100,54,150,3],'外套':[100,48,166,4],'褲子':[100,144,122,1],'裙子':[100,144,112,1],'鞋子':[50,366,70,1],'包包':[166,150,64,5],'配件':[100,28,42,6]};
+const fmX = sx => 19.5 + sx / 200 * 61, fmW = sw => sw / 200 * 61, fmY = sy => sy / 410 * 100;
 /* ---------- 自由配衣：衣服可以任意移動、兩指縮放旋轉 ---------- */
 let FZ = null;
-function fzLoad(){ if (FZ) return FZ; try { FZ = JSON.parse(localStorage.getItem('dmFree')||'[]'); } catch(e) { FZ = []; } const ok = new Set(clothes().map(c=>c.ID)); FZ = (Array.isArray(FZ)?FZ:[]).filter(x => ok.has(x.id)); return FZ; }
-function fzSave(){ try { localStorage.setItem('dmFree', JSON.stringify(FZ||[])); } catch(e) {} }
+const fzKey = () => dmMode() === 'form' ? 'dmForm' : 'dmFree';
+function fzLoad(){ if (FZ) return FZ; try { FZ = JSON.parse(localStorage.getItem(fzKey())||'[]'); } catch(e) { FZ = []; } const ok = new Set(clothes().map(c=>c.ID)); FZ = (Array.isArray(FZ)?FZ:[]).filter(x => ok.has(x.id)); return FZ; }
+function fzSave(){ try { localStorage.setItem(fzKey(), JSON.stringify(FZ||[])); } catch(e) {} }
 const FZ_POS = {'外套':[24,34,40],'上衣':[50,26,44],'洋裝':[50,40,46],'內搭':[74,24,32],'褲子':[50,62,38],'裙子':[50,60,38],'鞋子':[50,88,26],'包包':[80,60,28],'配件':[80,12,20]};
-function fzAdd(id, quiet){ const c = clothes().find(x=>x.ID===id); if (!c) return; const L = fzLoad(); const z = L.reduce((a,x)=>Math.max(a,x.z||0),0)+1;
+function fzAdd(id, quiet, form){ const c = clothes().find(x=>x.ID===id); if (!c) return; if (form === undefined) form = dmMode() === 'form';
+  if (form) { const L = fzLoad(), f = FORM_POS[c['分類']] || [100,120,90,3], n = L.filter(x => (clothes().find(y=>y.ID===x.id)||{})['分類'] === c['分類']).length;
+    const it = {id, x:fmX(f[0]) + n*5, w:fmW(f[2]), r:0, z:f[3] + n*0.1, top:fmY(f[1]) + n*3}; it.y = it.top + it.w*0.8/2; L.push(it);
+    const ph = clothCover(id); if (ph && ph['縮圖']) { const im = new Image(); im.onload = () => { const asp = im.naturalHeight / Math.max(1, im.naturalWidth); it.y = it.top + it.w*0.8*asp/2; delete it.top;
+      const k = (FZ||[]).indexOf(it); if (k >= 0) { fzSave(); const el = document.querySelector('#fzBoard .fz[data-k="'+k+'"]'); if (el) fzApply(el, it); } }; im.src = ph['縮圖']; } else delete it.top;
+    fzSave(); if (!quiet) render(); return; }
+  const L = fzLoad(); const z = L.reduce((a,x)=>Math.max(a,x.z||0),0)+1;
   const n = L.filter(x => (clothes().find(y=>y.ID===x.id)||{})['分類'] === c['分類']).length;
   const p = FZ_POS[c['分類']] || [50,50,30]; L.push({id, x:Math.min(90,p[0]+n*6), y:Math.min(92,p[1]+n*5), w:p[2], r:0, z}); fzSave(); if (!quiet) render(); }
 function fzItemHtml(it, i){ const c = clothes().find(x=>x.ID===it.id); if (!c) return '';
@@ -3304,16 +3321,18 @@ function freeView(){
   setTimeout(fzInit, 0);
   const sel = FZ_SEL >= 0 && L[FZ_SEL];
   return `<div class="dmbar"><button class="btn" data-act="fzpick">${icon('<path d="M12 5v14M5 12h14"/>',15)} 加衣服</button><button class="btn" data-act="fzfrom">${icon('<path d="M4 7h16M4 12h16M4 17h16"/>',15)} 帶入滑動的</button><span style="flex:1"></span>${L.length?`<button class="btn" data-act="fzclear">清空</button>`:''}</div>
-    <div class="fzwrap"><div class="fzb" id="fzBoard">${L.map(fzItemHtml).join('')}${L.length?'':'<div class="fzb-empty">按「加衣服」挑幾件放上來<br>單指拖曳移動・兩指捏合縮放、轉動</div>'}</div>
+    <div class="fzwrap"><div class="fzb" id="fzBoard">${dmMode()==='form' ? FORM_SVG : ''}${L.map(fzItemHtml).join('')}${L.length || dmMode()==='form' ?'':'<div class="fzb-empty">按「加衣服」挑幾件放上來<br>單指拖曳移動・兩指捏合縮放、轉動</div>'}</div>
     <div class="fztools" id="fzTools" style="${sel?'':'display:none'}"><button data-act="fzsize" data-v="0.85">${icon('<circle cx="11" cy="11" r="7"/><path d="M8 11h6M20 20l-4-4"/>',18)}縮小</button><button data-act="fzsize" data-v="1.18">${icon('<circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M20 20l-4-4"/>',18)}放大</button><button data-act="fzfront">${icon('<path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4" opacity=".4"/><path d="M4 16l8 4 8-4" opacity=".4"/>',18)}最上層</button><button data-act="fzback">${icon('<path d="M12 4l8 4-8 4-8-4z" opacity=".4"/><path d="M4 12l8 4 8-4" opacity=".4"/><path d="M4 16l8 4 8-4"/>',18)}最下層</button><button data-act="fzdel" style="color:var(--red)">${icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',18)}拿掉</button><button data-act="fzdesel">${icon('<path d="M5 12l5 5 9-10"/>',18)}完成</button></div></div>
-    <div class="small muted" id="dmStatus" style="text-align:center;margin:10px 0 8px">${L.length ? dmStatus() : '點一下衣服可以選取，畫布下方會出現調整按鈕'}</div>
+    <div class="small muted" id="dmStatus" style="text-align:center;margin:10px 0 8px">${L.length ? dmStatus() : dmMode()==='form' ? '按「加衣服」幫人台穿上，會自動對準位置' : '點一下衣服可以選取，畫布下方會出現調整按鈕'}</div>
     <div style="display:flex;gap:8px"><button class="btn" style="flex:1" data-act="dmwear">今天就穿這套</button><button class="btn solid" style="flex:1" data-act="dmsave">存成穿搭</button></div>`;
 }
-function fzParse(o){ try { const a = JSON.parse(String(o && o['版面'] || '')); return Array.isArray(a) ? a : null; } catch(e) { return null; } }
-function fzLayoutFor(o){ const a = fzParse(o); if (!a) return null; const ids = String(o['衣物']||'').split(',').filter(Boolean);
+function fzParse(o){ try { const a = JSON.parse(String(o && o['版面'] || '')); return Array.isArray(a) ? a : a && Array.isArray(a.items) ? a.items : null; } catch(e) { return null; } }
+function fzIsForm(o){ try { const a = JSON.parse(String(o && o['版面'] || '')); return !!(a && a.form); } catch(e) { return false; } }
+function fzLayoutFor(o){ const a = fzParse(o); if (!a) return null; const ids = String(o['衣物']||'').split(',').filter(Boolean), form = fzIsForm(o);
   const keep = a.filter(x => ids.includes(x.id) && clothes().some(c=>c.ID===x.id)); const saveFZ = fzLoad(); FZ = keep.map(x=>Object.assign({}, x));
-  ids.filter(id => !keep.some(x=>x.id===id)).forEach(id => fzAdd(id, true)); const out = FZ; FZ = saveFZ; try { localStorage.setItem('dmFree', JSON.stringify(FZ||[])); } catch(e) {} return out; }
-function fzStatic(L, cls){ setTimeout(fzCutAll, 0); return `<div class="fzb fzs ${cls||''}">${L.map(it => { const c = clothes().find(x=>x.ID===it.id); return c ? `<div class="fz" style="left:${it.x}%;top:${it.y}%;width:${it.w}%;z-index:${it.z||1};transform:translate(-50%,-50%) rotate(${it.r||0}deg)">${clothImg(c)}</div>` : ''; }).join('')}</div>`; }
+  const realSave = fzSave; fzSave = function(){}; try { ids.filter(id => !keep.some(x=>x.id===id)).forEach(id => fzAdd(id, true, form)); } finally { fzSave = realSave; }
+  const out = FZ; FZ = saveFZ; out.form = form; return out; }
+function fzStatic(L, cls){ setTimeout(fzCutAll, 0); return `<div class="fzb fzs ${cls||''}">${L.form ? FORM_SVG : ''}${L.map(it => { const c = clothes().find(x=>x.ID===it.id); return c ? `<div class="fz" style="left:${it.x}%;top:${it.y}%;width:${it.w}%;z-index:${it.z||1};transform:translate(-50%,-50%) rotate(${it.r||0}deg)">${clothImg(c)}</div>` : ''; }).join('')}</div>`; }
 /* 去背：把照片外圍的白底（和邊緣相連的白色）變透明，白色衣服本身不受影響 */
 const FZ_CUT = {};
 function fzCutout(src){
@@ -3390,7 +3409,7 @@ function fzPickSheet(cat){
     <div class="actions"><button type="button" class="save" data-act="fzpickdone">完成</button></div>`);
 }
 function dressView(){
-  if (dmMode()==='free') return dmModeBar() + freeView();
+  if (dmMode()!=='swipe') return dmModeBar() + freeView();
   if (!st.dm) st.dm = {}; if (!st.dmPin) st.dmPin = {};
   const on = dmEnabled(), dress = dmIsDress();
   const rows = DM_ROWS.filter(r=>on.includes(r[0])).map(([row]) => {
@@ -4641,7 +4660,7 @@ document.addEventListener('click', e => {
     else if (d.act==='ootdsave') { openOutfit(null, (st.ootdCur||[]).slice()); }
     else if (d.act==='dmpin') { st.dmPin[d.v] = !st.dmPin[d.v]; el.classList.toggle('on', st.dmPin[d.v]); toast(st.dmPin[d.v] ? '已釘住「'+d.v+'」，隨機時不會換' : '取消釘選', 1300); }
     else if (d.act==='dmshuffle') dmShuffle();
-    else if (d.act==='dmmode') { try { localStorage.setItem('dmMode', d.v); } catch(e){} FZ_SEL = -1; render(); }
+    else if (d.act==='dmmode') { try { localStorage.setItem('dmMode', d.v); } catch(e){} FZ = null; FZ_SEL = -1; render(); }
     else if (d.act==='fzpick') fzPickSheet();
     else if (d.act==='fzdesel') fzSelect(-1);
     else if (d.act==='fzcat') fzPickSheet(d.v);
@@ -4660,12 +4679,16 @@ document.addEventListener('click', e => {
     else if (d.act==='dmcfgsave') { const on=[...document.querySelectorAll('[data-chips="dmrows"] .on')].map(b=>b.dataset.v); if (!on.length) return toast('至少選一排', 1400); try { localStorage.setItem('dmRows', JSON.stringify(on)); } catch(e){} closeSheet(); render(); }
     else if (d.act==='dmsave' || d.act==='dmwear') { const ids = dmPicked(); if (!ids.length) return toast('先挑幾件衣服', 1400);
       const key = ids.slice().sort().join(','), hit = outfits().find(o => String(o['衣物']||'').split(',').filter(Boolean).sort().join(',') === key);
-      const free = dmMode()==='free', lay = free ? fzLoad().map(x => ({id:x.id, x:+x.x.toFixed(1), y:+x.y.toFixed(1), w:+x.w.toFixed(1), r:x.r||0, z:x.z||1})) : null;
-      if (hit && lay && hit['版面'] !== JSON.stringify(lay)) { run('saveRow', ['穿搭', {ID:hit.ID, '版面':JSON.stringify(lay)}]); }
+      const free = dmMode()!=='swipe', lay = free ? fzLoad().map(x => ({id:x.id, x:+x.x.toFixed(1), y:+x.y.toFixed(1), w:+x.w.toFixed(1), r:x.r||0, z:+(+(x.z||1)).toFixed(1)})) : null;
+      if (lay) lay.form = dmMode()==='form';
+      const layStr = lay ? JSON.stringify(lay.form ? {form:1, items:lay} : lay) : '';
+      if (hit && lay && hit['版面'] !== layStr) { run('saveRow', ['穿搭', {ID:hit.ID, '版面':layStr}]); }
       if (d.act==='dmwear') { if (hit) { logWear(hit.ID, ids, TODAY()); if (lay) toast('已記在今天，也更新了這套的排版', 1800); } else { openOutfit(null, ids); OB.wearToday = true; if (lay) OB.layout = lay; toast('取個名字存起來，會一起記在今天', 2200); } }
       else { if (hit) { if (lay) toast('這套已經存過了，排版已更新', 1600); else { viewOutfit(hit.ID); toast('這套已經存過了', 1500); } } else { openOutfit(null, ids); if (lay) OB.layout = lay; } } }
-    else if (d.act==='fzopen') { const o = outfits().find(x=>x.ID===d.id); if (!o) return; const L = fzLayoutFor(o); FZ = L || []; fzSave(); FZ_SEL = -1;
-      try { localStorage.setItem('dmMode', 'free'); } catch(e){} closeSheet(); st.tab='more'; st.more='衣櫃'; st.wd='配衣'; render(); window.scrollTo(0,0); toast('排好後按「存成穿搭」就會更新這套', 2200); }
+    else if (d.act==='fzopenform') { const o = outfits().find(x=>x.ID===d.id); if (!o) return; try { localStorage.setItem('dmMode', 'form'); } catch(e){} FZ = []; String(o['衣物']||'').split(',').filter(Boolean).forEach(id => fzAdd(id, true, true)); FZ_SEL = -1;
+      closeSheet(); st.tab='more'; st.more='衣櫃'; st.wd='配衣'; render(); window.scrollTo(0,0); toast('排好後按「存成穿搭」就會更新這套', 2200); }
+    else if (d.act==='fzopen') { const o = outfits().find(x=>x.ID===d.id); if (!o) return; const L = fzLayoutFor(o);
+      try { localStorage.setItem('dmMode', L && L.form ? 'form' : 'free'); } catch(e){} FZ = L ? L.slice() : []; fzSave(); FZ_SEL = -1; closeSheet(); st.tab='more'; st.more='衣櫃'; st.wd='配衣'; render(); window.scrollTo(0,0); toast('排好後按「存成穿搭」就會更新這套', 2200); }
     else if (d.act==='wrecreate') { if (!clothes().length) return toast('衣櫃還是空的，先新增幾件衣物吧', 2200); openOutfit(null, null, id); }
     else if (d.act==='wwdone') { st.wwdone=!st.wwdone; render(); }
     else if (d.act==='wskip') { run('saveRow',['想買衣物',{ID:id,'狀態':'不買了'}]); }
@@ -4680,7 +4703,7 @@ document.addEventListener('click', e => {
       const seas=[...document.querySelectorAll('[data-chips="ob季節"] .on')].map(b=>b.dataset.v).join('、');
       const o={'名稱':$('#obName').value.trim() || OB.sel.map(x=>(clothes().find(c=>c.ID===x)||{})['名稱']).filter(Boolean).slice(0,2).join(' ＋ '),'衣物':OB.sel.join(','),'場合':$('#obOcc').value.trim(),'季節':seas,'備註':$('#obNote').value.trim(),'靈感貼文':$('#obPost').value};
       if (OB.id) o.ID=OB.id; else o['建立時間']=nowStr();
-      if (OB.layout) o['版面'] = JSON.stringify(OB.layout.filter(x => OB.sel.includes(x.id)).map(x => ({id:x.id, x:+x.x.toFixed(1), y:+x.y.toFixed(1), w:+x.w.toFixed(1), r:x.r||0, z:x.z||1})));
+      if (OB.layout) { const its = OB.layout.filter(x => OB.sel.includes(x.id)).map(x => ({id:x.id, x:+x.x.toFixed(1), y:+x.y.toFixed(1), w:+x.w.toFixed(1), r:x.r||0, z:x.z||1})); o['版面'] = JSON.stringify(OB.layout.form ? {form:1, items:its} : its); }
       const wearNow = OB.wearToday; closeSheet(); OB=null; if (st.tab==='more' && st.more==='衣櫃' && !wearNow) st.wd='穿搭'; run('saveRow',['穿搭',o]); if (wearNow) logWear(o.ID, o['衣物'].split(','), TODAY()); }
     else if (d.act==='obdel') { const oid=OB&&OB.id; if (!oid) return; ask('刪除這套穿搭？','衣物本身不會被刪除。','刪除').then(ok=>{ if (ok) { OB=null; run('deleteRow',['穿搭',oid],'刪除中…'); } }); }
     else if (d.act==='popen') { st.proj=id; st.pjTab='步驟'; st.pjF='全部'; render(); window.scrollTo(0,0); }
