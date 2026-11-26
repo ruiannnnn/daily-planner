@@ -149,6 +149,17 @@ svg.spark{width:100%;height:70px;display:block}
 .oph .addph{aspect-ratio:3/4}
 .wimg.ophc{border:2px solid var(--coral)}
 .leaflet-tooltip.smap-n{background:none;border:0;box-shadow:none;color:#fff;font-weight:700;font-size:12px;padding:0}.leaflet-tooltip.smap-n::before{display:none}
+.calday .sub-h{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin:0 4px 6px}
+.calday .side,.calday .side-only{display:none}
+.calday.split .sub-h{margin-top:4px}
+.caltl{max-height:72vh;overflow:auto;border-radius:22px}
+.caltl .tl-card{margin:0}
+.gaprow{position:relative}.gaprow .gapbar{position:absolute;left:0;top:6px;bottom:6px;width:4px;border-radius:4px;background:#8BB89A}
+.gaprow .main{padding-left:12px}.gaprow .btn{font-size:12.5px;padding:4px 10px}
+@media (min-width:1000px){
+  .calday{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+  .calday .side{display:block}.calday .side-only{display:block}
+}
 .mres{margin-top:8px;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:340px;overflow-y:auto;background:var(--card)}
 .mres button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:8px 10px;border-bottom:1px dashed var(--line)}
 .mres button:last-child{border-bottom:0}.mres img,.mres .np{width:40px;height:60px;object-fit:cover;border-radius:5px;background:var(--line);flex:none}
@@ -1752,6 +1763,7 @@ function render(){
   if (TL_SCROLL && st.tab==='cal' && st.calMode==='時間軸') { TL_SCROLL = false; requestAnimationFrame(() => { const tl = document.querySelector('.tl'); if (!tl) return; const first = tl.querySelector('#tlNow') || tl.querySelector('.tl-ev'); const y = first ? first.getBoundingClientRect().top + window.scrollY - 160 : tl.getBoundingClientRect().top + window.scrollY + 2*TL_PX - 120; window.scrollTo({top: Math.max(0, y), behavior: 'smooth'}); }); }
   if (st.tab==='more' && st.more==='想去清單' && st.wv==='地圖') initWishMap();
   if (st.tab==='more' && st.more==='追星紀錄' && st.sv==='地圖') initShowMap();
+  { const c = document.getElementById('calTl'); if (c) { const f = c.querySelector('#tlNow') || c.querySelector('.tl-ev'); if (f) c.scrollTop = Math.max(0, f.getBoundingClientRect().top - c.getBoundingClientRect().top - 60); } }
   syncDot();
 }
 
@@ -1852,11 +1864,11 @@ function vHome(){
   <section class="card"><div class="card-h"><h2>今天</h2><div class="side">${tasks.length>1?`<div class="sortsw"><button class="${homeSort()==='pri'?'on':''}" data-act="homesort" data-v="pri">優先</button><button class="${homeSort()==='time'?'on':''}" data-act="homesort" data-v="time">時間</button></div>`:''}<button class="card-add" data-act="quick-add" aria-label="新增待辦">+</button></div></div>
     ${(()=>{ const sh = shiftOn(T); return sh && !sh.off ? `<div class="small" style="display:flex;align-items:center;gap:6px;margin:-2px 0 6px;color:#56738A;font-weight:700"><i class="dot" style="background:${SHIFT_COLOR}"></i>今天上班 ${esc(sh.s)}–${esc(sh.e)}</div>` : sh && sh.off ? `<div class="small muted" style="margin:-2px 0 6px">今天放假</div>` : ''; })()}
     ${tasks.length ? tasks.map(([t,src])=>taskRow(t,false,src)).join('') : '<div class="empty">今天沒有待辦，好好休息一下。</div>'}</section>
+  ${soon.length?`<section class="card"><div class="card-h"><h2>接下來 7 天</h2></div>${soon.map(([t,src])=>taskRow(t,true,src)).join('')}</section>`:''}
+  ${kkCard(true)}
   ${habits.length?`<section class="card"><div class="card-h"><h2>習慣</h2><span class="sub">今天 ${doneH} / ${habits.length}</span></div>
     <div class="habits">${hs.map(([x,s])=>`<button class="habit ${s.today?'on':''}" data-act="check" data-id="${esc(x.ID)}">
-      <span class="check ${s.today?'on':''}"></span><span><div class="n">${esc(x['習慣'])}</div><div class="p">本週 ${s.week}/${esc(x['每週目標次數'])}${s.streak>1?'<br>連續 '+s.streak+' 天':''}</div></span></button>`).join('')}</div></section>`:''}
-  ${soon.length?`<section class="card"><div class="card-h"><h2>接下來 7 天</h2></div>${soon.map(([t,src])=>taskRow(t,true,src)).join('')}</section>`:''}
-  ${kkCard(true)}`;
+      <span class="check ${s.today?'on':''}"></span><span><div class="n">${esc(x['習慣'])}</div><div class="p">本週 ${s.week}/${esc(x['每週目標次數'])}${s.streak>1?'<br>連續 '+s.streak+' 天':''}</div></span></button>`).join('')}</div></section>`:''}`;
 }
 
 /* ---------- 待辦 ---------- */
@@ -2084,8 +2096,8 @@ const tlDay = () => st.tlDay || st.calDay || TODAY();
 const toMin = t => { const m = String(t||'').match(/^(\d{1,2}):(\d{2})/); return m ? (+m[1])*60 + (+m[2]) : null; };
 const hhmm = m => pad(Math.floor(m/60)%24) + ':' + pad(m%60);
 function tlOpen(e){ return e.src==='旅遊' ? `data-trip="${esc(e.id)}"` : e.src==='韋基行程' ? `data-wev="${esc(e.id)}"` : `data-edit="${e.src}" data-id="${esc(e.id)}"`; }
-function vTimeline(){
-  const day = tlDay(), T = TODAY(), all = calEvents(day, day);
+function vTimeline(dayArg, gridOnly){
+  const day = dayArg || tlDay(), T = TODAY(), all = calEvents(day, day);
   const timed = [], untimed = [];
   all.forEach(e => { const s0 = toMin(e.time); if (s0 === null) { untimed.push(e); return; }
     let e0 = toMin(e.end); if (e0 === null || e0 <= s0) e0 = s0 + 60; timed.push({e, s:s0, t:Math.min(e0, 24*60)}); });
@@ -2101,12 +2113,8 @@ function vTimeline(){
   const busy = timed.reduce((a,it)=>a+(it.t-it.s),0);
   const wd0 = (toD(day).getDay() + 6) % 7, ws = addDays(day, -wd0), wdays = Array.from({length:7}, (_, i) => addDays(ws, i));
   const wkEv = {}; calEvents(ws, addDays(ws, 6)).forEach(e => { wkEv[e.d] = 1; });
-  return `<div class="wk"><button class="wk-arr" data-act="tlday" data-dir="-7" aria-label="上一週">‹</button><div class="wk-days">${wdays.map((d, i) => `<button class="wk-d ${d===day?'on':''} ${d===T?'today':''} ${i>4?'we':''}" data-act="tlpick" data-d="${d}"><small>${'一二三四五六日'[i]}</small><b>${+d.slice(8)}</b><i class="${wkEv[d]?'has':''}"></i></button>`).join('')}</div><button class="wk-arr" data-act="tlday" data-dir="7" aria-label="下一週">›</button></div>
-  <div class="wk-sub"><span>${niceW(day)} · ${day===T?'今天':rel(diff(day,T))}</span>${day!==T?'<button class="btn" data-act="tlday" data-dir="0">回今天</button>':''}</div>
-  ${untimed.length ? `<div class="group-h"><span>整天／還沒排時間</span><span>${untimed.length}</span></div><section class="card tl-untimed">${untimed.map(e => { const ok = !e.virtual && !e.done && (e.src==='待辦行程' || e.src==='工作事項'); return ok ? evRow(e).replace('<div class="row ', `<div data-ud="${e.src}" data-uid="${esc(e.id)}" data-utitle="${esc(e.title)}" data-uc="${tagColor(e.tag)}" class="ud-can row `) : evRow(e); }).join('')}<div class="small muted" style="margin-top:6px">按住拖到下面的時間軸就能排時間，拖到上面的日期可以改天</div></section>` : ''}
-  <div class="group-h"><span>時間軸</span><span>${timed.length ? timed.length+' 項 · 已排 '+(busy>=60?Math.floor(busy/60)+' 小時':'')+(busy%60?' '+busy%60+' 分':'') : '點空白處新增'}</span></div>
-  <section class="card tl-card"><div class="tl" data-sh="${startH}" style="height:${hours.length*TL_PX}px">
-    ${hours.map(h => `<div class="tl-h" style="top:${top(h*60)}px"><span>${pad(h)}:00</span></div><button class="tl-slot" data-act="tlnew" data-t="${pad(h)}:00" style="top:${top(h*60)}px"></button><button class="tl-slot" data-act="tlnew" data-t="${pad(h)}:30" style="top:${top(h*60+30)}px"></button>`).join('')}
+  const grid = `<section class="card tl-card"><div class="tl" data-sh="${startH}" style="height:${hours.length*TL_PX}px">
+    ${hours.map(h => `<div class="tl-h" style="top:${top(h*60)}px"><span>${pad(h)}:00</span></div><button class="tl-slot" data-act="tlnew" data-d="${day}" data-t="${pad(h)}:00" style="top:${top(h*60)}px"></button><button class="tl-slot" data-act="tlnew" data-d="${day}" data-t="${pad(h)}:30" style="top:${top(h*60+30)}px"></button>`).join('')}
     ${timed.map(it => { const e = it.e, c = tagColor(e.tag), h = Math.max(24, (it.t-it.s)*TL_PX/60 - 2), w = 100/it.cols;
       const canDrag = !e.virtual && ['待辦行程','工作事項','韋基行程','追星紀錄'].includes(e.src);
       return `<div class="tl-ev tap ${e.done?'done':''} ${canDrag?'dragable':''}" ${tlOpen(e)} data-dsrc="${e.src}" data-did="${esc(e.id)}" data-ds="${it.s}" data-dt="${it.t}" data-virtual="${e.virtual?1:''}" style="top:${top(it.s)+1}px;height:${h}px;left:calc(48px + (100% - 52px) * ${it.col*w/100});width:calc((100% - 52px) * ${w/100} - 3px);--c:${c}">
@@ -2114,6 +2122,12 @@ function vTimeline(){
     ${(()=>{ const sh = shiftOn(day); if (!sh || sh.off || !sh.s) return ''; const a = toMin(sh.s), z0 = toMin(sh.e), z = z0 !== null && z0 > a ? z0 : 24*60; const a2 = Math.max(a, startH*60); return `<div class="tl-shift" style="top:${top(a2)}px;height:${Math.max(0, top(z)-top(a2))}px"><span>上班 ${esc(sh.s)}–${esc(sh.e)}</span></div>`; })()}
     ${day===T && nowMin >= startH*60 ? `<div class="tl-now" id="tlNow" style="top:${top(nowMin)}px"><i></i></div>` : ''}
   </div></section>`;
+  if (gridOnly) return {grid, timed, untimed, busy};
+  return `<div class="wk"><button class="wk-arr" data-act="tlday" data-dir="-7" aria-label="上一週">‹</button><div class="wk-days">${wdays.map((d, i) => `<button class="wk-d ${d===day?'on':''} ${d===T?'today':''} ${i>4?'we':''}" data-act="tlpick" data-d="${d}"><small>${'一二三四五六日'[i]}</small><b>${+d.slice(8)}</b><i class="${wkEv[d]?'has':''}"></i></button>`).join('')}</div><button class="wk-arr" data-act="tlday" data-dir="7" aria-label="下一週">›</button></div>
+  <div class="wk-sub"><span>${niceW(day)} · ${day===T?'今天':rel(diff(day,T))}</span>${day!==T?'<button class="btn" data-act="tlday" data-dir="0">回今天</button>':''}</div>
+  ${untimed.length ? `<div class="group-h"><span>整天／還沒排時間</span><span>${untimed.length}</span></div><section class="card tl-untimed">${untimed.map(e => { const ok = !e.virtual && !e.done && (e.src==='待辦行程' || e.src==='工作事項'); return ok ? evRow(e).replace('<div class="row ', `<div data-ud="${e.src}" data-uid="${esc(e.id)}" data-utitle="${esc(e.title)}" data-uc="${tagColor(e.tag)}" class="ud-can row `) : evRow(e); }).join('')}<div class="small muted" style="margin-top:6px">按住拖到下面的時間軸就能排時間，拖到上面的日期可以改天</div></section>` : ''}
+  <div class="group-h"><span>時間軸</span><span>${timed.length ? timed.length+' 項 · 已排 '+(busy>=60?Math.floor(busy/60)+' 小時':'')+(busy%60?' '+busy%60+' 分':'') : '點空白處新增'}</span></div>
+  ${grid}`;
 }
 
 /* 時間軸拖曳：按住方塊上下拖可以改時間，拖底部的小橫條可以改結束時間（以 15 分鐘為單位） */
@@ -2331,8 +2345,18 @@ function vCal(){
   return head + `<div class="seg">${tags.map(t=>`<button class="${st.calTag===t?'on':''}" data-caltag="${t}">${t!=='全部'?`<i class="dot" style="background:${tagColor(t)}"></i>`:''}${t}</button>`).join('')}</div>
   <div class="calsw"><button data-act="shiftset" aria-label="班表"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>班表</button><button class="${calView()==='dots'?'on':''}" data-act="calview" data-v="dots" aria-label="只顯示點點"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><circle cx="6" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="18" cy="12" r="2.2"/></svg>點點</button><button class="${calView()==='text'?'on':''}" data-act="calview" data-v="text" aria-label="顯示文字"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h11M4 17h14"/></svg>文字</button><button class="${calHideDaily()?'on':''}" data-act="calhide" aria-label="隱藏每天重複的事項"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>${calHideDaily()?'<path d="M3 3l18 18"/>':''}</svg>${calHideDaily()?'已隱藏每天重複':'每天重複'}</button></div>
   <section class="card ${calView()==='text'?'mcal-card':''}" style="padding:${calView()==='text'?'8px 2px':'12px 10px'}">${cells}</section>
-  <div class="group-h"><span>${niceW(sel)}${sel===T?' · 今天':''}</span><span>${day.length?day.length+' 項':''}</span></div>
-  <section class="card">${shiftRow(sel)}${day.length ? day.map(evRow).join('') : '<div class="empty">這天沒有其他安排，按 + 新增行程。</div>'}</section>`;
+  ${calDayPanel(sel, day)}`;
+}
+/* ---------- 月曆下方：選到那天的安排（電腦版左右並排） ---------- */
+function calSide(){ return 'tl'; }
+function udRow(e){ const ok = !e.virtual && !e.done && (e.src==='待辦行程' || e.src==='工作事項'); return ok ? evRow(e).replace('<div class="row ', `<div data-ud="${e.src}" data-uid="${esc(e.id)}" data-utitle="${esc(e.title)}" data-uc="${tagColor(e.tag)}" class="ud-can row `) : evRow(e); }
+function calDayPanel(sel, day){
+  const T = TODAY(), mode = calSide(), head = `<div class="group-h"><span>${niceW(sel)}${sel===T?' · 今天':''}</span><span>${day.length?day.length+' 項':''}</span></div>`;
+  const timed = day.filter(e => toMin(e.time) !== null).sort((a,b) => toMin(a.time) - toMin(b.time)), allday = day.filter(e => toMin(e.time) === null);
+  const empty = '<div class="empty">這天沒有其他安排，按 + 新增行程。</div>';
+  const list = `<div class="sub-h side-only">當天清單<span></span></div><section class="card ${mode==='tl'?'tl-untimed':''}">${shiftRow(sel)}${day.length ? (mode==='tl' ? timed.map(evRow).join('') + allday.map(udRow).join('') : day.map(evRow).join('')) : empty}${mode==='tl' && allday.some(e=>!e.virtual && !e.done) ? '<div class="small muted side-only" style="margin-top:6px">整天的事項可以按住拖到右邊的時間軸</div>' : ''}</section>`;
+  if (mode === 'tl') { const g = vTimeline(sel, true);
+    return head + `<div class="calday"><div>${list}</div><div class="side"><div class="sub-h">時間軸<span>${g.timed.length ? g.timed.length + ' 項 · 已排 ' + (g.busy>=60 ? Math.floor(g.busy/60)+' 小時' : '') + (g.busy%60 ? ' '+g.busy%60+' 分' : '') : '點空白處新增'}</span></div><div class="caltl" id="calTl">${g.grid}</div></div></div>`; }
 }
 
 /* ---------- 專案 ---------- */
@@ -5070,7 +5094,7 @@ document.addEventListener('click', e => {
     else if (d.act==='calview') { try { localStorage.setItem('calView', d.v); } catch(e){} render(); }
     else if (d.act==='tlpick') { st.tlDay = d.d; st.calDay = d.d; TL_SCROLL = true; render(); }
     else if (d.act==='tlday') { st.tlDay = d.dir==='0' ? TODAY() : addDays(tlDay(), Number(d.dir)); st.calDay = st.tlDay; TL_SCROLL = true; render(); }
-    else if (d.act==='tlnew') { const s0 = toMin(d.t); openForm('待辦行程', null, {'日期': tlDay(), '時間': d.t, '結束時間': hhmm(Math.min(s0+60, 23*60+59)), '類型':'行程'}); }
+    else if (d.act==='tlnew') { const s0 = toMin(d.t); openForm('待辦行程', null, {'日期': d.d || tlDay(), '時間': d.t, '結束時間': hhmm(Math.min(s0+60, 23*60+59)), '類型':'行程'}); }
     else if (d.act==='dur') { const f=$('#form'), st0=f.querySelector('[name="時間"]'), en=f.querySelector('[name="結束時間"]'); if (!st0 || !en) return; const m0 = toMin(st0.value); if (m0===null) { toast('先選開始時間', 1400); st0.focus(); return; } en.value = hhmm(Math.min(m0 + Number(d.m), 23*60+59)); f.querySelectorAll('.durs button').forEach(b=>b.classList.toggle('on', b===el)); }
     else if (d.act==='tf') { if (d.k==='clear') { st.taskTag='全部'; st.taskPri='全部'; } else st[d.k]=d.v; render(); }
     else if (d.act==='calhide') { try { localStorage.setItem('calHideDaily', calHideDaily() ? '0' : '1'); } catch(e){} toast(calHideDaily() ? '月曆不顯示每天重複的事項（今日和時間軸照常顯示）' : '月曆顯示每天重複的事項', 2200); render(); }
