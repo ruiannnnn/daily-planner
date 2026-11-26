@@ -148,6 +148,7 @@ svg.spark{width:100%;height:70px;display:block}
 .oph .ph span{position:absolute;left:5px;bottom:5px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px}
 .oph .addph{aspect-ratio:3/4}
 .wimg.ophc{border:2px solid var(--coral)}
+.leaflet-tooltip.smap-n{background:none;border:0;box-shadow:none;color:#fff;font-weight:700;font-size:12px;padding:0}.leaflet-tooltip.smap-n::before{display:none}
 .mres{margin-top:8px;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:340px;overflow-y:auto;background:var(--card)}
 .mres button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:8px 10px;border-bottom:1px dashed var(--line)}
 .mres button:last-child{border-bottom:0}.mres img,.mres .np{width:40px;height:60px;object-fit:cover;border-radius:5px;background:var(--line);flex:none}
@@ -1714,6 +1715,7 @@ function render(){
   if (st.tab==='more' && st.more==='旅遊' && st.tv==='地圖') initMap();
   if (TL_SCROLL && st.tab==='cal' && st.calMode==='時間軸') { TL_SCROLL = false; requestAnimationFrame(() => { const tl = document.querySelector('.tl'); if (!tl) return; const first = tl.querySelector('#tlNow') || tl.querySelector('.tl-ev'); const y = first ? first.getBoundingClientRect().top + window.scrollY - 160 : tl.getBoundingClientRect().top + window.scrollY + 2*TL_PX - 120; window.scrollTo({top: Math.max(0, y), behavior: 'smooth'}); }); }
   if (st.tab==='more' && st.more==='想去清單' && st.wv==='地圖') initWishMap();
+  if (st.tab==='more' && st.more==='追星紀錄' && st.sv==='地圖') initShowMap();
   syncDot();
 }
 
@@ -4252,10 +4254,58 @@ function vStars(){
   <section class="card"><div class="stats"><div><div class="l">總共</div><div class="v">${all.filter(r=>r['日期']<T).length} 場</div></div>
     <div><div class="l">今年</div><div class="v">${all.filter(r=>String(r['日期']).startsWith(T.slice(0,4)) && r['日期']<T).length} 場</div></div>
     <div><div class="l">最常看</div><div class="v" style="font-size:15px">${top?esc(top[0]):'—'}</div></div></div></section>
+  <div class="big-seg">${['列表','地圖'].map(x=>`<button class="${(st.sv||'列表')===x?'on':''}" data-act="sv" data-v="${x}">${x}</button>`).join('')}</div>
   ${perf.length>1?`<div class="seg">${['全部',...perf].map(x=>`<button class="${st.sp===x?'on':''}" data-sp="${esc(x)}">${esc(x)}</button>`).join('')}</div>`:''}
-  ${up.length?`<div class="group-h"><span>即將到來</span><span>${up.length}</span></div><section class="card">${up.map(starRow).join('')}</section>`:''}
+  ${st.sv==='地圖' ? showMapHtml(list) : `${up.length?`<div class="group-h"><span>即將到來</span><span>${up.length}</span></div><section class="card">${up.map(starRow).join('')}</section>`:''}
   ${Object.keys(years).sort().reverse().map(y=>`<div class="group-h"><span>${y} 年</span><span>${years[y].length} 場</span></div><section class="card">${years[y].map(starRow).join('')}</section>`).join('')}
-  ${!list.length?'<section class="card"><div class="empty">還沒有紀錄，按右下角 + 新增第一場。</div></section>':''}`;
+  ${!list.length?'<section class="card"><div class="empty">還沒有紀錄，按右下角 + 新增第一場。</div></section>':''}`}`;
+}
+/* ---------- 演出地圖：用場地名稱查座標（存在這支手機），以城市為單位標在地圖上 ---------- */
+let SMAP = null, SGEO = null, sgeoBusy = false;
+function sgeo(){ if (SGEO) return SGEO; try { SGEO = JSON.parse(localStorage.getItem('showGeo')||'{}'); } catch(e) { SGEO = {}; } return SGEO; }
+function sgeoSave(){ try { localStorage.setItem('showGeo', JSON.stringify(SGEO||{})); } catch(e) {} }
+const venueOf = r => String(r['地點']||'').trim();
+function showCities(list){
+  const g = sgeo(), cities = {};
+  list.forEach(r => { const v = venueOf(r), p = v && g[v]; if (!p || !p.lat) return; const k = (p.country && p.country !== '台灣' && p.country !== '臺灣' ? p.country + ' ' : '') + (p.city || v);
+    (cities[k] = cities[k] || { name: k, lat: 0, lng: 0, n: 0, shows: [], venues: {} }); const c = cities[k]; c.lat += p.lat; c.lng += p.lng; c.n++; c.shows.push(r); c.venues[v] = 1; });
+  return Object.values(cities).map(c => Object.assign(c, { lat: c.lat / c.n, lng: c.lng / c.n })).sort((a,b) => b.n - a.n);
+}
+function showMapHtml(list){
+  const T = TODAY(), g = sgeo(), noVenue = list.filter(r => !venueOf(r)).length, pending = [...new Set(list.map(venueOf).filter(v => v && !(v in g)))].length;
+  const cs = showCities(list.filter(r => r['日期'] < T)), up = list.filter(r => r['日期'] >= T && venueOf(r) && g[venueOf(r)] && g[venueOf(r)].lat).length;
+  return `<section class="card" style="padding:12px 14px"><div class="stats"><div><div class="l">去過的城市</div><div class="v">${cs.length} 個</div></div><div><div class="l">看過的場地</div><div class="v">${new Set(list.filter(r=>r['日期']<T).map(venueOf).filter(v=>v && g[v] && g[v].lat)).size} 個</div></div><div><div class="l">即將到來</div><div class="v">${up} 場</div></div></div></section>
+    <div id="smap" style="height:52vh;min-height:300px;border-radius:18px;border:1px solid var(--line);background:#e8e4da;margin-bottom:10px"></div>
+    <div class="small muted" style="text-align:center;margin-bottom:10px" id="smapNote">${pending ? `正在查 ${pending} 個場地的位置…` : ''}${noVenue ? `${pending?' · ':''}${noVenue} 場沒有填地點，不會出現在地圖上` : ''}</div>
+    ${cs.length ? `<section class="card">${cs.map(c => `<div class="row tap" data-act="scity" data-v="${esc(c.name)}"><span class="dot" style="background:#C4685A;width:10px;height:10px;margin:0"></span><div class="main"><div class="t">${esc(c.name)}</div><div class="m">${esc(Object.keys(c.venues).join('、'))}</div></div><span class="amt">${c.n} 場</span></div>`).join('')}</section>` : ''}`;
+}
+async function initShowMap(){
+  const el = document.getElementById('smap'); if (!el) return;
+  try { await loadLeaflet(); } catch(e) { el.innerHTML = '<div class="empty" style="padding:20px">地圖元件載入失敗，請確認網路連線。</div>'; return; }
+  if (!document.body.contains(el)) return;
+  if (SMAP) { try { SMAP.remove(); } catch(e) {} }
+  SMAP = L.map(el, { zoomControl: true, attributionControl: true, worldCopyJump: true });
+  L.tileLayer(TILE_URL, { maxZoom: 19, className: 'warm-tiles', attribution: '&copy; OpenStreetMap' }).addTo(SMAP);
+  const T = TODAY(), all = (D['追星紀錄']||[]).filter(r => st.sp==='全部' || showPerfs(r).includes(st.sp));
+  const past = showCities(all.filter(r => r['日期'] < T)), fut = showCities(all.filter(r => r['日期'] >= T));
+  const pop = (c, label) => `<b>${esc(c.name)}</b> <span style="color:#8C8475">${label} ${c.n} 場</span><div style="margin-top:4px;max-height:160px;overflow:auto">${c.shows.slice().sort((a,b)=>String(b['日期']).localeCompare(String(a['日期']))).map(r => `<a href="#" data-show="${esc(r.ID)}" style="display:block;color:#3E3A39;text-decoration:none;padding:3px 0;border-top:1px dashed #E8DFCC">${esc(String(r['日期']).slice(0,10).replace(/-/g,'/'))}　${esc(r['活動名稱'])}</a>`).join('')}</div>`;
+  past.forEach(c => L.circleMarker([c.lat, c.lng], { radius: Math.min(26, 8 + c.n * 2.2), color: '#fff', weight: 2, fillColor: '#C4685A', fillOpacity: .78 }).addTo(SMAP).bindPopup(pop(c, '看過')).bindTooltip(String(c.n), { permanent: true, direction: 'center', className: 'smap-n' }));
+  fut.forEach(c => L.circleMarker([c.lat, c.lng], { radius: 9, color: '#7D98AD', weight: 3, dashArray: '3 3', fillColor: '#fff', fillOpacity: .9 }).addTo(SMAP).bindPopup(pop(c, '即將')));
+  const pts = past.concat(fut).map(c => [c.lat, c.lng]);
+  if (pts.length) SMAP.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 11 }); else SMAP.setView([23.7, 121], 7);
+  el.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-show]'); if (a) { e.preventDefault(); viewShow(a.dataset.show); } });
+  showGeoQueue(all);
+}
+/* 還沒查過的場地，一個一個查座標 */
+async function showGeoQueue(list){
+  if (sgeoBusy) return; const g = sgeo(), todo = [...new Set(list.map(venueOf).filter(v => v && !(v in g)))]; if (!todo.length) return;
+  sgeoBusy = true; let changed = false;
+  for (const v of todo) {
+    try { const r = (await call('geocodePlace', v)) || []; const p = r[0];
+      g[v] = p ? { lat: Number(p['緯度']), lng: Number(p['經度']), city: String(p['城市']||'').replace(/^(.{2,3}[市縣]).*$/, '$1'), country: p['國家'] || '' } : {}; changed = true; }
+    catch(e) { break; }
+  }
+  sgeoBusy = false; if (changed) { sgeoSave(); if (st.tab==='more' && st.more==='追星紀錄' && st.sv==='地圖') render(); }
 }
 
 /* ---------- 收納 ---------- */
@@ -4856,6 +4906,8 @@ document.addEventListener('click', e => {
     else if (d.act==='wtab') { st.wd=d.v; render(); }
     else if (d.act==='wcat') { st.wcat=d.v; st.wcol='全部'; render(); }
     else if (d.act==='wcol') { st.wcol=d.v; render(); }
+    else if (d.act==='sv') { st.sv = d.v; render(); }
+    else if (d.act==='scity') { if (!SMAP) return; const c = showCities((D['追星紀錄']||[]).filter(r => r['日期'] < TODAY() && (st.sp==='全部' || showPerfs(r).includes(st.sp)))).find(x => x.name === d.v); if (c) { document.getElementById('smap').scrollIntoView({behavior:'smooth', block:'center'}); SMAP.setView([c.lat, c.lng], 12); } }
     else if (d.act==='slook') showLookup();
     else if (d.act==='slurl') { const b = $('#slurlBox'); if (b) { b.style.display = b.style.display==='none' ? '' : 'none'; const i = $('#slurl'); if (i && b.style.display==='') i.focus(); } }
     else if (d.act==='slurlgo') showUrlLookup();
@@ -5284,7 +5336,7 @@ const Local = (() => {
   let photos = [
     ['S3_0','#5F7894','#E08AA8','舞台'],['S3_0','#2F5D50','#B9842C','安可'],['S3_1','#9B72B0','#5F7894','合照'],['VX1','#B5523B','#E9C46A','預覽範例'],['VX1','#3F7A68','#7DB9E2','手燈海']
   ].map(([ev,a,b,t],i)=>({ID:'PH'+i,'行程ID':ev,'檔案ID':'','縮圖':demo(a,b,t),'說明':'','上傳時間':'2026-06-0'+(i+1)}));
-  const GEO = {'京都':[35.0116,135.7681,'京都市','日本','日本京都府京都市'],'大阪':[34.6937,135.5023,'大阪市','日本','日本大阪府大阪市'],'台南':[22.9999,120.2270,'臺南市','台灣','台灣臺南市'],'清水寺':[34.9949,135.7850,'京都市','日本','日本京都府京都市東山區清水 1 丁目'],'首爾':[37.5665,126.9780,'首爾','南韓','南韓首爾特別市'],'花蓮':[23.9872,121.6015,'花蓮縣','台灣','台灣花蓮縣'],'東京':[35.6762,139.6503,'東京','日本','日本東京都']};
+  const GEO = {'小巨蛋':[25.0516,121.5497,'台北市','台灣','台灣台北市松山區南京東路四段2號'],'高雄巨蛋':[22.6696,120.3024,'高雄市','台灣','台灣高雄市左營區博愛二路757號'],'台北':[25.0330,121.5654,'台北市','台灣','台灣台北市'],'京都':[35.0116,135.7681,'京都市','日本','日本京都府京都市'],'大阪':[34.6937,135.5023,'大阪市','日本','日本大阪府大阪市'],'台南':[22.9999,120.2270,'臺南市','台灣','台灣臺南市'],'清水寺':[34.9949,135.7850,'京都市','日本','日本京都府京都市東山區清水 1 丁目'],'首爾':[37.5665,126.9780,'首爾','南韓','南韓首爾特別市'],'花蓮':[23.9872,121.6015,'花蓮縣','台灣','台灣花蓮縣'],'東京':[35.6762,139.6503,'東京','日本','日本東京都']};
   db['專案'] = [{ID:'PJ1','名稱':'2026 聖誕交換卡片','開始日':d(-3),'截止日':'2026-12-25','狀態':'進行中','名單狀態':'已報名、已收到地址、已寫好、已寄出、對方已收到','說明':'每人寄一張卡片給抽到的人。','連結':'instagram.com/p/xxxx'}];
   db['專案步驟'] = [
     {ID:'PS1','專案ID':'PJ1','標題':'發 IG 限動招募','日期':d(-2),'狀態':'完成','備註':''},
