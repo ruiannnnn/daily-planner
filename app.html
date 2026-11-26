@@ -1195,6 +1195,7 @@ const SCHEMA = {
     {k:'備註',t:'area'}]},
   '追星紀錄':{name:'演出紀錄', label:'活動名稱', fields:[
     {k:'活動名稱',t:'text',req:1,ph:'例如：呂允 別著急 首張專輯演唱會 Zepp 旗艦安可場'},
+    {k:'_slook',t:'slookup'},
     {k:'演出者',t:'suggest',from:['追星紀錄']},
     {k:'類型',t:'chips',o:SHOW_TYPES,d:'演唱會'},
     {k:'日期',t:'date',d:()=>TODAY()},
@@ -2873,6 +2874,54 @@ async function mediaPick(i){
   const im = $('#mlookCover'); if (im && cover) { im.src = cover; im.style.display = ''; }
   $('#mlookRes').innerHTML = ''; msg.textContent = '已帶入' + (n.length ? '：' + n.join('、') : '封面') ;
 }
+/* ---------- 演出：搜尋文化部藝文活動、或貼售票網址帶入 ---------- */
+let SLOOK = [], SHOW_POSTER = null;
+function sSetChip(k, v){ const box = $('#form') && $('#form').querySelector(`[data-chips="${k}"]`); if (!box || !v) return; const b = [...box.querySelectorAll('button')].find(x=>x.dataset.v===v); if (b) box.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b)); }
+function sMsg(t){ const m = $('#slookMsg'); if (m) m.textContent = t; }
+async function showLookup(){
+  const fm = $('#form'); if (!fm) return; const q = ((fm.querySelector('[name="活動名稱"]')||{}).value || '').trim() || ((fm.querySelector('[name="演出者"]')||{}).value || '').trim();
+  if (!q) return toast('先輸入活動名稱或演出者', 1600);
+  sMsg('搜尋中…（第一次會比較久）'); $('#slookRes').innerHTML = '';
+  try { SLOOK = await call('showSearch', q) || []; } catch(e) { sMsg(''); return toast(String(e && e.message || e).replace(/^Error:\s*/,''), 4000); }
+  sMsg(SLOOK.length ? '點選正確的活動' : '文化部資料裡找不到，試試「貼售票網址」或換個關鍵字');
+  $('#slookRes').innerHTML = SLOOK.length ? `<div class="mres">${SLOOK.map((r,i)=>`<button type="button" data-act="spick" data-i="${i}">${r.image?`<img src="${esc(r.image)}" alt="" loading="lazy">`:'<span class="np"></span>'}<div style="min-width:0"><div class="t">${esc(r.title)}</div><div class="m">${esc([r.start ? nice(r.start) + (r.end && r.end!==r.start ? '–' + nice(r.end) : '') : '', r.performer, (r.sessions[0]||{}).venue].filter(Boolean).join(' · '))}</div></div></button>`).join('')}</div>` : '';
+}
+function showPick(i, si){
+  const r = SLOOK[i]; if (!r) return;
+  if (si < 0 && r.sessions.length > 1) {   /* 好幾場：先選是哪一場 */
+    sMsg('你去的是哪一場？');
+    $('#slookRes').innerHTML = `<div class="mres">${r.sessions.map((x,j)=>`<button type="button" data-act="spick" data-i="${i}" data-s="${j}"><div style="min-width:0"><div class="t">${esc(x.d ? niceW(x.d) : '')} ${esc(x.t)}</div><div class="m">${esc(x.venue || x.addr)}</div></div></button>`).join('')}</div>`;
+    return;
+  }
+  const ss = r.sessions[Math.max(0, si)] || {};
+  showFill({title: r.title, performer: r.performer, type: r.type, date: ss.d || r.start, time: ss.t, venue: ss.venue, image: r.image, shop: /kktix/i.test(r.sales)?'KKTIX':/tixcraft/i.test(r.sales)?'拓元':/opentix/i.test(r.sales)?'OPENTIX':/ibon/i.test(r.sales)?'ibon':/ticket\.com\.tw/i.test(r.sales)?'年代':''});
+}
+async function showUrlLookup(){
+  const u = (($('#slurl')||{}).value || '').trim(); if (!u) return toast('先貼上網址', 1500);
+  sMsg('讀取網頁中…');
+  try { const r = await call('showFromUrl', u); showFill(r); $('#slurlBox').style.display = 'none'; }
+  catch(e) { sMsg(''); toast(String(e && e.message || e).replace(/^Error:\s*/,''), 4500); }
+}
+function showFill(r){
+  const n = [];
+  if (r.title && mSet('活動名稱', r.title, true)) n.push('名稱');
+  if (mSet('演出者', r.performer)) n.push('演出者');
+  if (r.date && mSet('日期', r.date, true)) n.push('日期');
+  if (mSet('時間', r.time)) n.push('時間');
+  if (mSet('地點', r.venue)) n.push('地點');
+  if (mSet('購票處', r.shop)) n.push('購票處');
+  if (r.price && mSet('票價', String(r.price))) n.push('票價');
+  if (r.type && r.type!=='其他') sSetChip('類型', r.type);
+  $('#slookRes').innerHTML = '';
+  SHOW_POSTER = r.image || null;
+  const im = $('#slookCover'); if (im && r.image) { im.src = r.image; im.style.display = ''; im.onerror = () => { im.style.display = 'none'; }; }
+  sMsg('已帶入' + (n.length ? '：' + n.join('、') : '') + (r.image ? '，存檔後會自動加上海報' : ''));
+  const fm = $('#form'); if (fm && fm.dataset.id && SHOW_POSTER) { const id = fm.dataset.id, url = SHOW_POSTER; SHOW_POSTER = null; showPosterUpload(id, url); }
+}
+async function showPosterUpload(id, url){
+  try { const d = await call('getRemoteImage', url); if (!d) return toast('海報抓不下來，可以自己上傳', 2500);
+    await uploadShowPhotos(id, [dataToFile(d, 'poster.jpg')]); } catch(e) {}
+}
 /* 封面卡片：有封面顯示封面，沒有就用顏色＋書名 */
 const REC_BG = ['#E8D6C8','#D8E1E7','#DCE4D6','#EBD8D4','#E2DAE4','#EFE6CC','#EADFD5'];
 function recPoster(r, big){
@@ -3407,7 +3456,8 @@ async function uploadShowPhotos(id, files){
   if (err) toast((okN ? `已上傳 ${okN} 張，第 ${okN+1} 張失敗：` : '上傳失敗：') + err, 9000); else toast('照片已上傳 ✓', 1400);
   if (CUR_SHOW === id && $('#sheet').classList.contains('show')) viewShow(id); else if (st.tab==='more' && st.more==='追星紀錄') render();
 }
-function showAfter(){ const r = (D['追星紀錄']||[]).slice(-1)[0]; if (r) { viewShow(r.ID); toast('可以在下方加海報或現場照片', 2200); } }
+function showAfter(){ const r = (D['追星紀錄']||[]).slice(-1)[0]; if (!r) return; viewShow(r.ID);
+  if (SHOW_POSTER) { const url = SHOW_POSTER; SHOW_POSTER = null; toast('正在加上海報…', 2000); showPosterUpload(r.ID, url); } else toast('可以在下方加海報或現場照片', 2200); }
 /* 新增時順便記一筆支出（美甲、演出共用） */
 function quickExpense(o, amount, label, re){
   if (!o['__記帳'] || !num(amount)) return;
@@ -4617,7 +4667,7 @@ function accountsList(){
 }
 let AFTER = null;
 function openForm(name, id, preset, after){
-  AFTER = after || null;
+  AFTER = after || null; if (name === '追星紀錄') SHOW_POSTER = null;
   const sc = SCHEMA[name], key = sc.key||'ID';
   const rec = id!=null ? (D[tblOf(name)]||[]).find(r=>String(r[key])===String(id)) : null;
   if (sc.prep) sc.prep(rec, preset);
@@ -4650,7 +4700,8 @@ function openForm(name, id, preset, after){
         return `<div class="f">${lab}<select name="${f.k}"><option value="">（不屬於旅行）</option>${trips.map(t=>`<option value="${esc(t.ID)}" ${t.ID===cv?'selected':''}>${esc(t['名稱'])}${t['出發日']?'（'+String(t['出發日']).slice(5).replace('-','/')+'）':''}</option>`).join('')}</select></div>`; }
       case 'place': return `<div class="f">${lab}<div style="display:flex;gap:8px;align-items:center"><input name="${f.k}" list="dl-${f.k}" value="${esc(v)}" placeholder="直接輸入，或按搜尋找 Google 地圖" style="flex:1" autocomplete="off"><button type="button" class="btn" data-act="place-search">搜尋</button></div><datalist id="dl-${f.k}">${uniq(D['待辦行程']||[],'地點').map(x=>`<option value="${esc(x)}">`).join('')}</datalist><div id="placeRes"></div><a id="placeMap" class="small" target="_blank" rel="noopener" style="display:${v?'inline-block':'none'};margin-top:6px;color:var(--green)" href="${v?gmap(rec&&rec['地址']||v):'#'}">在 Google 地圖開啟 ›</a></div>`;
       case 'alarm': return `<div class="f" style="margin-top:-6px"><div class="small muted" style="line-height:1.6">都不選＝不通知。選了才會加到 Google 日曆；沒填開始時間的話，以當天早上 9:00 計算</div><button type="button" class="btn" data-act="alarm" style="margin-top:8px">⏰ 另外設 iPhone 鬧鐘</button></div>`;
-      case 'hidden': return `<input type="hidden" name="${f.k}" value="${esc(v)}">`;
+      case 'slookup': return `<div class="f" style="margin-top:-6px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><img id="slookCover" alt="" style="display:none;width:44px;height:62px;object-fit:cover;border-radius:6px;background:var(--line)"><button type="button" class="btn" data-act="slook">🔍 搜尋活動</button><button type="button" class="btn" data-act="slurl">🔗 貼售票網址</button><span class="small muted" id="slookMsg"></span></div>
+        <div id="slurlBox" style="display:none;margin-top:8px"><div style="display:flex;gap:6px"><input id="slurl" type="text" inputmode="url" autocapitalize="off" autocorrect="off" placeholder="貼上 KKTIX、拓元、OPENTIX… 的活動網址" style="flex:1"><button type="button" class="btn" data-act="slurlgo">帶入</button></div></div><div id="slookRes"></div></div>`;
       case 'lookup': { const cv = rec ? rec['封面'] : ''; return `<div class="f mlook" style="margin-top:-6px"><div style="display:flex;align-items:center;gap:10px"><img id="mlookCover" src="${esc(cv||'')}" alt="" style="${cv?'':'display:none;'}width:44px;height:66px;object-fit:cover;border-radius:6px;background:var(--line)"><button type="button" class="btn" data-act="mlook">🔍 從網路找資料</button><span class="small muted" id="mlookMsg"></span></div><div id="mlookRes"></div></div>`; }
       case 'dur': return `<div class="f">${lab}<div class="durs">${[[30,'30 分'],[60,'1 小時'],[90,'1.5 小時'],[120,'2 小時'],[180,'3 小時']].map(([m,l])=>`<button type="button" data-act="dur" data-m="${m}">${l}</button>`).join('')}</div></div>`;
       case 'postsel': { const ps=(D['貼文收藏']||[]).slice().sort((a,b)=>(isStylePost(b)-isStylePost(a)) || String(b['收藏日期']||'').localeCompare(String(a['收藏日期']||''))); return `<div class="f">${lab}<select name="${f.k}"><option value="">（沒有）</option>${ps.map(p=>`<option value="${esc(p.ID)}" ${p.ID===v?'selected':''}>${isStylePost(p)?'👗 ':''}${esc(postTitle(p))}</option>`).join('')}</select></div>`; }
@@ -4693,7 +4744,7 @@ function readForm(form){
   const name = form.dataset.name, sc = SCHEMA[name], o = {};
   if (form.dataset.id) o[sc.key||'ID'] = form.dataset.id;
   for (const f of sc.fields){
-    if (f.t==='dur' || f.t==='alarm' || f.t==='lookup') continue;
+    if (f.t==='dur' || f.t==='alarm' || f.t==='lookup' || f.t==='slookup') continue;
     if (f.newOnly && form.dataset.id) continue;
     const box = form.querySelector(`[data-chips="${f.k}"], [name="${f.k}"]`);
     if (box && box.closest('[data-hidden]')) { o[f.k] = ''; continue; }
@@ -4805,6 +4856,10 @@ document.addEventListener('click', e => {
     else if (d.act==='wtab') { st.wd=d.v; render(); }
     else if (d.act==='wcat') { st.wcat=d.v; st.wcol='全部'; render(); }
     else if (d.act==='wcol') { st.wcol=d.v; render(); }
+    else if (d.act==='slook') showLookup();
+    else if (d.act==='slurl') { const b = $('#slurlBox'); if (b) { b.style.display = b.style.display==='none' ? '' : 'none'; const i = $('#slurl'); if (i && b.style.display==='') i.focus(); } }
+    else if (d.act==='slurlgo') showUrlLookup();
+    else if (d.act==='spick') showPick(Number(d.i), d.s===undefined ? -1 : Number(d.s));
     else if (d.act==='mlook') mediaLookup();
     else if (d.act==='mpick') mediaPick(Number(d.i));
     else if (d.act==='homesort') { try { localStorage.setItem('homeSort', d.v); } catch(e){} render(); }
@@ -5299,6 +5354,10 @@ const Local = (() => {
     getMediaFull(){ throw new Error('預覽模式沒有原圖'); }, getClothCutout(fid){ return (window.__CUT||{})[fid] || ''; }, mediaSearch(type, q){ const cv = c => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http:\/\/www.w3.org/2000/svg" width="200" height="300"><rect width="200" height="300" fill="${c}"/><text x="100" y="160" font-size="28" text-anchor="middle" fill="#fff">${q}</text></svg>`);
       return type==='book' ? [{id:'gb:1',title:q,sub:'作者甲 · 遠流',year:'2021',cover:cv('#6B5A75'),authors:'作者甲',desc:'這是一本關於'+q+'的書。'},{id:'gb:2',title:q+'（新版）',sub:'作者乙',year:'2024',cover:'',authors:'作者乙',desc:''}]
         : [{id:type+':1',title:q,sub:'Original '+q,year:'2024',cover:cv('#4E6578'),desc:'劇情簡介…'},{id:type+':2',title:q+' 2',sub:'',year:'2026',cover:cv('#8A5754'),desc:''}]; },
+    showSearch(q){ const im = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http:\/\/www.w3.org/2000/svg" width="200" height="280"><rect width="200" height="280" fill="#7D98AD"/></svg>');
+      return [{id:'u1',title:q+' 巡迴演唱會 台北站',performer:q,type:'演唱會',image:im,start:'2026-12-19',end:'2026-12-20',sales:'https:\/\/tixcraft.com/x',sessions:[{d:'2026-12-19',t:'19:30',venue:'台北小巨蛋'},{d:'2026-12-20',t:'19:00',venue:'台北小巨蛋'}]},{id:'u2',title:q+' Live House',performer:q,type:'Live House',image:'',start:'2027-01-10',end:'2027-01-10',sales:'',sessions:[{d:'2027-01-10',t:'20:00',venue:'Legacy Taipei'}]}]; },
+    showFromUrl(u){ return {title:'測試演唱會（網址帶入）',date:'2027-02-14',time:'19:30',venue:'Zepp New Taipei',performer:'測試歌手',image:'',shop:'KKTIX',price:2800}; },
+    getRemoteImage(u){ const c = document.createElement('canvas'); c.width = 200; c.height = 280; const g = c.getContext('2d'); g.fillStyle = '#7D98AD'; g.fillRect(0,0,200,280); return c.toDataURL('image/jpeg', .8); },
     mediaDetail(type, id){ return {title:'', year:'2024', cover:'', director:'丹尼·維勒納夫', cast:'提摩西·夏勒梅、千黛亞、奧斯汀·巴特勒', overview:'保羅·亞崔迪與弗瑞曼人聯手，踏上復仇之路。'}; },
     uploadPhoto2(t, f, full, thumb, name){ const p=Object.assign({ID:'TP'+(seq++),'檔案ID':'','縮圖':thumb,'說明':'','上傳時間':new Date().toISOString()}, f); (t==='穿搭照片'?ophotos:t==='旅遊照片'?tphotos:t==='衣櫃照片'?wphotos:t==='美甲照片'?nphotos:t==='演出照片'?sphotos:t==='筆記照片'?nimgs:photos).push(p); return p; },
     setPhotoCover(t, id, g){ return true; },
