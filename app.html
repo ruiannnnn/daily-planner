@@ -148,6 +148,22 @@ svg.spark{width:100%;height:70px;display:block}
 .oph .ph span{position:absolute;left:5px;bottom:5px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px}
 .oph .addph{aspect-ratio:3/4}
 .wimg.ophc{border:2px solid var(--coral)}
+.mres{margin-top:8px;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:340px;overflow-y:auto;background:var(--card)}
+.mres button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:8px 10px;border-bottom:1px dashed var(--line)}
+.mres button:last-child{border-bottom:0}.mres img,.mres .np{width:40px;height:60px;object-fit:cover;border-radius:5px;background:var(--line);flex:none}
+.mres .t{font-size:14px;font-weight:700;line-height:1.35}.mres .m{font-size:12px;color:var(--muted);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 10px}
+.rcard{text-align:left;min-width:0}
+.rpos{position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:var(--c,#E4DCD2);box-shadow:0 2px 6px rgba(60,48,30,.12);border:1.5px solid rgba(62,58,57,.12)}
+.rpos img{width:100%;height:100%;object-fit:cover;display:block}
+.rpos .np{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;text-align:center;font-family:var(--serif);font-weight:700;font-size:14px;line-height:1.35;color:#3E3A39}
+.rpos .st{position:absolute;left:5px;top:5px;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;background:rgba(255,252,246,.92);color:#3E3A39}
+.rpos .st.ing{background:#F0A497}.rpos .st.want{background:#F6D36B}
+.rpos .pb{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(0,0,0,.25)}.rpos .pb i{display:block;height:100%;background:#F0A497}
+.rcard .rt{font-size:13px;font-weight:700;margin-top:6px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rcard .rm{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcard .stars{font-size:11px}
+.rdet{display:flex;gap:14px;margin-bottom:12px}.rdet .rpos{width:104px;flex:none}
 .sortsw{display:inline-flex;background:var(--line);border-radius:99px;padding:2px;margin-right:2px}
 .sortsw button{font-size:12.5px;padding:3px 10px;border-radius:99px;color:var(--muted)}
 .sortsw button.on{background:var(--card);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.1)}
@@ -1383,7 +1399,7 @@ const SCHEMA = {
     {k:'金額',t:'num'},
     {k:'備註',t:'area'}]},
   '紀錄_電影':{name:'電影紀錄', tbl:'觀影閱讀', fixed:{'類型':'電影'}, label:'名稱', fields:[
-    {k:'名稱',t:'text',req:1},
+    {k:'名稱',t:'text',req:1},{k:'_lookup',t:'lookup'},{k:'封面',t:'hidden'},{k:'年份',t:'hidden'},{k:'外部ID',t:'hidden'},
     {k:'狀態',t:'chips',o:['想看','進行中','已完成','放棄'],d:'想看'},
     {k:'評分',t:'chips',o:[1,2,3,4,5]},
     {k:'導演',t:'suggest',from:['觀影閱讀'],old:'作者導演'},
@@ -1393,7 +1409,7 @@ const SCHEMA = {
     {k:'開始日',lab:'觀看日期',t:'date'},
     {k:'完成日',t:'date'}]},
   '紀錄_電視劇':{name:'電視劇紀錄', tbl:'觀影閱讀', fixed:{'類型':'電視劇'}, label:'名稱', fields:[
-    {k:'名稱',t:'text',req:1},
+    {k:'名稱',t:'text',req:1},{k:'_lookup',t:'lookup'},{k:'封面',t:'hidden'},{k:'年份',t:'hidden'},{k:'外部ID',t:'hidden'},
     {k:'狀態',t:'chips',o:['想看','進行中','已完成','放棄'],d:'想看'},
     {k:'評分',t:'chips',o:[1,2,3,4,5]},
     {k:'導演',t:'suggest',from:['觀影閱讀'],old:'作者導演'},
@@ -1403,7 +1419,7 @@ const SCHEMA = {
     {k:'開始日',t:'date'},
     {k:'完成日',t:'date'}]},
   '紀錄_書籍':{name:'讀書紀錄', tbl:'觀影閱讀', fixed:{'類型':'書籍'}, label:'名稱', fields:[
-    {k:'名稱',lab:'書名',t:'text',req:1},
+    {k:'名稱',lab:'書名',t:'text',req:1},{k:'_lookup',t:'lookup'},{k:'封面',t:'hidden'},{k:'年份',t:'hidden'},{k:'外部ID',t:'hidden'},
     {k:'作者',t:'suggest',from:['觀影閱讀'],old:'作者導演'},
     {k:'狀態',t:'chips',o:['想看','進行中','已完成','放棄'],d:'進行中'},
     {k:'閱讀方式',t:'chips',o:READ_WAYS,d:'實體書'},
@@ -2830,14 +2846,51 @@ function vRecords(){
     <div><div class="l">${labels['進行中']}</div><div class="v">${all.filter(r=>r['狀態']==='進行中').length} ${unit}</div></div>
     <div><div class="l">${labels['想看']}清單</div><div class="v">${all.filter(r=>r['狀態']==='想看').length} ${unit}</div></div></div></section>
   <div class="seg">${['全部','進行中','想看','已完成'].map(x=>`<button class="${f===x?'on':''}" data-rs="${x}">${labels[x]}</button>`).join('')}</div>
-  <section class="card">${list.map(recordRow).join('') || `<div class="empty">還沒有${k}紀錄，按右下角 + 新增。</div>`}</section>`;
+  ${list.length ? `<div class="rgrid">${list.map(recordCard).join('')}</div>` : `<section class="card"><div class="empty">還沒有${k}紀錄，按右下角 + 新增。</div></section>`}`;
+}
+/* ---------- 從網路找書籍／電影／電視劇資料 ---------- */
+let MLOOK = [];
+const mType = () => { const n = ($('#form')||{dataset:{}}).dataset.name || ''; return n==='紀錄_書籍' ? 'book' : n==='紀錄_電視劇' ? 'tv' : 'movie'; };
+function mSet(name, v, force){ const el = $('#form') && $('#form').querySelector(`[name="${name}"]`); if (!el || !v) return false; if (!force && String(el.value||'').trim()) return false; el.value = v; return true; }
+async function mediaLookup(){
+  const fm = $('#form'); if (!fm) return; const q = (fm.querySelector('[name="名稱"]').value || '').trim(); const box = $('#mlookRes'), msg = $('#mlookMsg');
+  if (!q) return toast('先輸入名稱再找', 1500);
+  msg.textContent = '搜尋中…'; box.innerHTML = '';
+  try { MLOOK = await call('mediaSearch', mType(), q) || []; }
+  catch(e) { msg.textContent = ''; return toast(String(e && e.message || e).replace(/^Error:\s*/,''), 4000); }
+  msg.textContent = MLOOK.length ? '點選正確的那一個' : '找不到，可以換個名稱（例如原文名）再試';
+  box.innerHTML = MLOOK.length ? `<div class="mres">${MLOOK.map((r,i)=>`<button type="button" data-act="mpick" data-i="${i}">${r.cover?`<img src="${esc(r.cover)}" alt="" loading="lazy">`:'<span class="np"></span>'}<div style="min-width:0"><div class="t">${esc(r.title)}${r.year?` <span class="muted" style="font-weight:400">(${esc(r.year)})</span>`:''}</div><div class="m">${esc(r.sub || r.desc || '')}</div></div></button>`).join('')}</div>` : '';
+}
+async function mediaPick(i){
+  const r = MLOOK[i]; if (!r) return; const type = mType(), msg = $('#mlookMsg');
+  let det = {}; if (type !== 'book') { msg.textContent = '讀取詳細資料…'; try { det = await call('mediaDetail', type, r.id) || {}; } catch(e) { toast(String(e && e.message || e).replace(/^Error:\s*/,''), 3000); } }
+  const cover = det.cover || r.cover, n = [];
+  mSet('名稱', det.title || r.title, true);
+  if (mSet(type==='book'?'作者':'導演', type==='book' ? r.authors : det.director)) n.push(type==='book'?'作者':'導演');
+  if (type !== 'book' && mSet('演員', det.cast)) n.push('演員');
+  if (mSet('劇情大綱', det.overview || r.desc)) n.push('大綱');
+  mSet('封面', cover, true); mSet('年份', det.year || r.year, true); mSet('外部ID', r.id, true);
+  const im = $('#mlookCover'); if (im && cover) { im.src = cover; im.style.display = ''; }
+  $('#mlookRes').innerHTML = ''; msg.textContent = '已帶入' + (n.length ? '：' + n.join('、') : '封面') ;
+}
+/* 封面卡片：有封面顯示封面，沒有就用顏色＋書名 */
+const REC_BG = ['#E8D6C8','#D8E1E7','#DCE4D6','#EBD8D4','#E2DAE4','#EFE6CC','#EADFD5'];
+function recPoster(r, big){
+  const book = normRT(r['類型'])==='書籍', p = num(r['閱讀進度']), bg = REC_BG[[...String(r['名稱']||'')].reduce((a,c)=>a+c.charCodeAt(0),0) % REC_BG.length];
+  const tag = {'進行中':book?'閱讀中':'觀看中','想看':book?'想讀':'想看','已完成':book?'讀完':'看完','放棄':'放棄'}[r['狀態']] || r['狀態'];
+  return `<div class="rpos" style="--c:${bg}">${r['封面'] ? `<img src="${esc(r['封面'])}" alt="" loading="lazy" onerror="this.remove()">` : ''}${r['封面'] ? '' : `<div class="np">${esc(r['名稱'])}</div>`}
+    ${big ? '' : `<span class="st ${r['狀態']==='進行中'?'ing':r['狀態']==='想看'?'want':''}">${esc(tag)}</span>`}${book && r['狀態']==='進行中' ? `<div class="pb"><i style="width:${p}%"></i></div>` : ''}</div>`;
+}
+function recordCard(r){
+  return `<button class="rcard tap" data-rec="${esc(r.ID)}">${recPoster(r)}<div class="rt">${esc(r['名稱'])}</div>
+    <div class="rm">${r['評分'] ? stars(r['評分']) : esc([r['年份'], recMaker(r)].filter(Boolean).join(' · ') || '\u00a0')}</div></button>`;
 }
 function viewRecord(id){
   const r = (D['觀影閱讀']||[]).find(x=>x.ID===id); if (!r) return;
   const t = normRT(r['類型']), book = t==='書籍', p = num(r['閱讀進度']);
   const row = (k, v, pre) => v ? `<div class="lrow"><span class="lk">${k}</span><div${pre?'':' style="white-space:normal"'}>${esc(v)}</div></div>` : '';
   const period = [r['開始日']?nice(r['開始日']):'', r['完成日']?nice(r['完成日']):''].filter(Boolean).join(' – ');
-  openSheet(`<div class="small muted">${t}</div><h2 style="margin:2px 0 4px">${esc(r['名稱'])}</h2><div style="margin-bottom:10px">${stars(r['評分'])}</div>
+  openSheet(`<div class="rdet">${recPoster(r, true)}<div style="min-width:0"><div class="small muted">${t}${r['年份']?' · '+esc(r['年份']):''}</div><h2 style="margin:2px 0 4px">${esc(r['名稱'])}</h2><div style="margin-bottom:6px">${stars(r['評分'])}</div><div class="small muted">${esc(recMaker(r)||'')}</div></div></div>
     ${row(book?'作者':'導演', recMaker(r))}${book?'':row('演員', r['演員'])}${book?row('閱讀方式', r['閱讀方式']):''}
     ${book?`<div class="lrow"><span class="lk">閱讀進度</span><div style="display:flex;align-items:center;gap:8px"><div class="bar" style="flex:1"><i style="width:${p}%"></i></div><b>${p}%</b></div></div>`:''}
     ${row('狀態', r['狀態'])}${row(book?'閱讀期間':'觀看期間', period)}${row(book?'內容大綱':'劇情大綱', r['劇情大綱'], 1)}${row('心得', r['心得'], 1)}
@@ -4597,6 +4650,8 @@ function openForm(name, id, preset, after){
         return `<div class="f">${lab}<select name="${f.k}"><option value="">（不屬於旅行）</option>${trips.map(t=>`<option value="${esc(t.ID)}" ${t.ID===cv?'selected':''}>${esc(t['名稱'])}${t['出發日']?'（'+String(t['出發日']).slice(5).replace('-','/')+'）':''}</option>`).join('')}</select></div>`; }
       case 'place': return `<div class="f">${lab}<div style="display:flex;gap:8px;align-items:center"><input name="${f.k}" list="dl-${f.k}" value="${esc(v)}" placeholder="直接輸入，或按搜尋找 Google 地圖" style="flex:1" autocomplete="off"><button type="button" class="btn" data-act="place-search">搜尋</button></div><datalist id="dl-${f.k}">${uniq(D['待辦行程']||[],'地點').map(x=>`<option value="${esc(x)}">`).join('')}</datalist><div id="placeRes"></div><a id="placeMap" class="small" target="_blank" rel="noopener" style="display:${v?'inline-block':'none'};margin-top:6px;color:var(--green)" href="${v?gmap(rec&&rec['地址']||v):'#'}">在 Google 地圖開啟 ›</a></div>`;
       case 'alarm': return `<div class="f" style="margin-top:-6px"><div class="small muted" style="line-height:1.6">都不選＝不通知。選了才會加到 Google 日曆；沒填開始時間的話，以當天早上 9:00 計算</div><button type="button" class="btn" data-act="alarm" style="margin-top:8px">⏰ 另外設 iPhone 鬧鐘</button></div>`;
+      case 'hidden': return `<input type="hidden" name="${f.k}" value="${esc(v)}">`;
+      case 'lookup': { const cv = rec ? rec['封面'] : ''; return `<div class="f mlook" style="margin-top:-6px"><div style="display:flex;align-items:center;gap:10px"><img id="mlookCover" src="${esc(cv||'')}" alt="" style="${cv?'':'display:none;'}width:44px;height:66px;object-fit:cover;border-radius:6px;background:var(--line)"><button type="button" class="btn" data-act="mlook">🔍 從網路找資料</button><span class="small muted" id="mlookMsg"></span></div><div id="mlookRes"></div></div>`; }
       case 'dur': return `<div class="f">${lab}<div class="durs">${[[30,'30 分'],[60,'1 小時'],[90,'1.5 小時'],[120,'2 小時'],[180,'3 小時']].map(([m,l])=>`<button type="button" data-act="dur" data-m="${m}">${l}</button>`).join('')}</div></div>`;
       case 'postsel': { const ps=(D['貼文收藏']||[]).slice().sort((a,b)=>(isStylePost(b)-isStylePost(a)) || String(b['收藏日期']||'').localeCompare(String(a['收藏日期']||''))); return `<div class="f">${lab}<select name="${f.k}"><option value="">（沒有）</option>${ps.map(p=>`<option value="${esc(p.ID)}" ${p.ID===v?'selected':''}>${isStylePost(p)?'👗 ':''}${esc(postTitle(p))}</option>`).join('')}</select></div>`; }
       case 'hidden': return `<input type="hidden" name="${f.k}" value="${esc(v)}">`;
@@ -4638,7 +4693,7 @@ function readForm(form){
   const name = form.dataset.name, sc = SCHEMA[name], o = {};
   if (form.dataset.id) o[sc.key||'ID'] = form.dataset.id;
   for (const f of sc.fields){
-    if (f.t==='dur' || f.t==='alarm') continue;
+    if (f.t==='dur' || f.t==='alarm' || f.t==='lookup') continue;
     if (f.newOnly && form.dataset.id) continue;
     const box = form.querySelector(`[data-chips="${f.k}"], [name="${f.k}"]`);
     if (box && box.closest('[data-hidden]')) { o[f.k] = ''; continue; }
@@ -4750,6 +4805,8 @@ document.addEventListener('click', e => {
     else if (d.act==='wtab') { st.wd=d.v; render(); }
     else if (d.act==='wcat') { st.wcat=d.v; st.wcol='全部'; render(); }
     else if (d.act==='wcol') { st.wcol=d.v; render(); }
+    else if (d.act==='mlook') mediaLookup();
+    else if (d.act==='mpick') mediaPick(Number(d.i));
     else if (d.act==='homesort') { try { localStorage.setItem('homeSort', d.v); } catch(e){} render(); }
     else if (d.act==='o-addph') { OUP = id; }
     else if (d.act==='ophview') ophSheet(id);
@@ -5239,7 +5296,10 @@ const Local = (() => {
     videoStart(){ return 'https:\/\/www.googleapis.com/upload/drive/mock'; },
     videoChunk(u, b64, s0, total){ const n = atob(b64).length; return s0 + n >= total ? {done:true, id:'VID'+(seq++)} : {done:false}; },
     videoDone(pid, fid, thumb, name){ const p={ID:'PM'+(seq++),'貼文ID':pid,'檔案ID':fid,'縮圖':thumb,'類型':'影片','檔名':name,'上傳時間':new Date().toISOString()}; pmedia.push(p); return p; },
-    getMediaFull(){ throw new Error('預覽模式沒有原圖'); }, getClothCutout(fid){ return (window.__CUT||{})[fid] || ''; },
+    getMediaFull(){ throw new Error('預覽模式沒有原圖'); }, getClothCutout(fid){ return (window.__CUT||{})[fid] || ''; }, mediaSearch(type, q){ const cv = c => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http:\/\/www.w3.org/2000/svg" width="200" height="300"><rect width="200" height="300" fill="${c}"/><text x="100" y="160" font-size="28" text-anchor="middle" fill="#fff">${q}</text></svg>`);
+      return type==='book' ? [{id:'gb:1',title:q,sub:'作者甲 · 遠流',year:'2021',cover:cv('#6B5A75'),authors:'作者甲',desc:'這是一本關於'+q+'的書。'},{id:'gb:2',title:q+'（新版）',sub:'作者乙',year:'2024',cover:'',authors:'作者乙',desc:''}]
+        : [{id:type+':1',title:q,sub:'Original '+q,year:'2024',cover:cv('#4E6578'),desc:'劇情簡介…'},{id:type+':2',title:q+' 2',sub:'',year:'2026',cover:cv('#8A5754'),desc:''}]; },
+    mediaDetail(type, id){ return {title:'', year:'2024', cover:'', director:'丹尼·維勒納夫', cast:'提摩西·夏勒梅、千黛亞、奧斯汀·巴特勒', overview:'保羅·亞崔迪與弗瑞曼人聯手，踏上復仇之路。'}; },
     uploadPhoto2(t, f, full, thumb, name){ const p=Object.assign({ID:'TP'+(seq++),'檔案ID':'','縮圖':thumb,'說明':'','上傳時間':new Date().toISOString()}, f); (t==='穿搭照片'?ophotos:t==='旅遊照片'?tphotos:t==='衣櫃照片'?wphotos:t==='美甲照片'?nphotos:t==='演出照片'?sphotos:t==='筆記照片'?nimgs:photos).push(p); return p; },
     setPhotoCover(t, id, g){ return true; },
     geocodePlace(q){ const k=Object.keys(GEO).find(x=>q.includes(x)); return k ? [Object.assign({'名稱':q,'地址':GEO[k][4]},{'城市':GEO[k][2],'國家':GEO[k][3],'緯度':GEO[k][0],'經度':GEO[k][1]})] : []; },
