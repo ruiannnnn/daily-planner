@@ -663,6 +663,41 @@ h1,h2,h3,.big,.stats .v,.datebox b,#noteTitle,.f .amount{font-weight:400!importa
 @keyframes wxsnow{from{transform:translate(0,-16px);opacity:0}20%{opacity:1}50%{transform:translate(4px,0)}to{transform:translate(-2px,18px);opacity:0}}
 @keyframes wxflash{0%{opacity:1}8%{opacity:.2}12%{opacity:1}16%{opacity:.3}20%{opacity:1}}
 @keyframes wxtw{50%{opacity:.4}}
+
+/* ================= 電腦版（螢幕寬度 1000px 以上自動切換） ================= */
+@media (min-width:1000px){
+  body{padding-left:216px}
+  #app{max-width:1120px;padding:26px 36px 60px}
+  .tabbar{top:0;bottom:0;right:auto;left:0;width:216px;flex-direction:column;justify-content:flex-start;border-top:0;border-right:var(--inkb);padding:28px 14px;box-sizing:border-box}
+  .tabbar::before{content:'Daily Planner';display:block;font-family:var(--serif);font-weight:700;font-size:20px;padding:0 10px 22px;color:var(--ink)}
+  .tabbar .in{flex-direction:column;gap:6px;max-width:none}
+  .tabbar button{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;padding:9px 12px;font-size:15px;border-radius:14px}
+  .tabbar button:hover{background:var(--line)}
+  .tabbar button.on{background:var(--coral);border:var(--inkm)}
+  .tabbar button.on svg{background:none;border:0;width:23px;height:23px;padding:0}
+  .fab{right:40px;bottom:36px}
+  /* 卡片：首頁分兩欄 */
+  body[data-tab="home"] #app{column-count:2;column-gap:22px}
+  body[data-tab="home"] #app>*{break-inside:avoid;-webkit-column-break-inside:avoid}
+  body[data-tab="home"] #app>header,body[data-tab="home"] #app>.hero-wrap{column-span:all}
+  .hero-wrap{max-width:720px;margin:-26px auto 14px;border-left:var(--inkb);border-right:var(--inkb)}
+  /* 格子變多欄 */
+  .wgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+  .rgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:20px 16px}
+  .fzpick{grid-template-columns:repeat(5,1fr)}
+  .oph{grid-template-columns:repeat(4,1fr)}
+  .fzwrap{width:min(560px, max(300px, calc((100vh - 300px) * .8)))}
+  .dmwrap{max-width:720px;margin:0 auto}
+  /* 彈出視窗：改成畫面中間的對話框 */
+  .sheet{top:50%;bottom:auto;left:calc(50% + 108px);right:auto;width:min(640px,calc(100vw - 300px));max-width:none;max-height:86vh;border-radius:22px;border:var(--inkb);padding:10px 26px 24px;
+    transform:translate(-50%,-46%);opacity:0;pointer-events:none;transition:transform .2s,opacity .2s}
+  .sheet.show{transform:translate(-50%,-50%);opacity:1;pointer-events:auto}
+  .sheet .grab{display:none}
+  #toast{left:calc(50% + 108px)}
+  /* 滑鼠：可以點的東西給手指標 */
+  .tap,[data-act],[data-edit],button{cursor:pointer}
+}
+@media (min-width:1400px){ body[data-tab="home"] #app{column-count:3} #app{max-width:1360px} }
 </style>
 </head>
 <body>
@@ -1708,6 +1743,7 @@ function titleIcon(){
 function render(){
   if(!D) return;
   RENDER_DAY = TODAY();
+  document.body.dataset.tab = st.tab || ''; document.body.dataset.more = st.more || '';
   $('#tabs').innerHTML = TABS.map(([k,l,p]) => `<button class="${st.tab===k?'on':''}" data-tab="${k}"><svg viewBox="0 0 24 24">${p}</svg>${l}</button>`).join('');
   const v = {home:vHome, cal:vCal, work:vWork, notes:vNotes, money:vMoney, more:vMore}[st.tab]();
   $('#app').innerHTML = v;
