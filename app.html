@@ -688,9 +688,9 @@ h1,h2,h3,.big,.stats .v,.datebox b,#noteTitle,.f .amount{font-weight:400!importa
   .tabbar button.on svg{background:none;border:0;width:23px;height:23px;padding:0}
   .fab{right:40px;bottom:36px}
   /* 卡片：首頁分兩欄 */
-  body[data-tab="home"] #app{column-count:2;column-gap:22px}
-  body[data-tab="home"] #app>*{break-inside:avoid;-webkit-column-break-inside:avoid}
-  body[data-tab="home"] #app>header,body[data-tab="home"] #app>.hero-wrap{column-span:all}
+  body[data-vtab="home"] #app{column-count:2;column-gap:22px}
+  body[data-vtab="home"] #app>*{break-inside:avoid;-webkit-column-break-inside:avoid}
+  body[data-vtab="home"] #app>header,body[data-vtab="home"] #app>.hero-wrap{column-span:all}
   .hero-wrap{max-width:720px;margin:-26px auto 14px;border-left:var(--inkb);border-right:var(--inkb)}
   /* 格子變多欄 */
   .wgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
@@ -708,7 +708,7 @@ h1,h2,h3,.big,.stats .v,.datebox b,#noteTitle,.f .amount{font-weight:400!importa
   /* 滑鼠：可以點的東西給手指標 */
   .tap,[data-act],[data-edit],button{cursor:pointer}
 }
-@media (min-width:1400px){ body[data-tab="home"] #app{column-count:3} #app{max-width:1360px} }
+@media (min-width:1400px){ body[data-vtab="home"] #app{column-count:3} #app{max-width:1360px} }
 </style>
 </head>
 <body>
@@ -1754,7 +1754,7 @@ function titleIcon(){
 function render(){
   if(!D) return;
   RENDER_DAY = TODAY();
-  document.body.dataset.tab = st.tab || ''; document.body.dataset.more = st.more || '';
+  document.body.dataset.vtab = st.tab || ''; document.body.dataset.vmore = st.more || '';   /* 只給版面用；不能叫 data-tab，否則點空白處會被當成按鈕 */
   $('#tabs').innerHTML = TABS.map(([k,l,p]) => `<button class="${st.tab===k?'on':''}" data-tab="${k}"><svg viewBox="0 0 24 24">${p}</svg>${l}</button>`).join('');
   const v = {home:vHome, cal:vCal, work:vWork, notes:vNotes, money:vMoney, more:vMore}[st.tab]();
   $('#app').innerHTML = v;
