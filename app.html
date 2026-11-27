@@ -3219,7 +3219,7 @@ function viewCloth(id){
   const info = [['品牌',r['品牌']],['尺寸',r['尺寸']],['價格',r['價格']!==''&&r['價格']!=null?money(num(r['價格'])):''],['購買日期',r['購買日期']?nice(r['購買日期']):''],['存放位置',r['存放位置']],['備註',r['備註']]].filter(x=>x[1]);
   openSheet(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><h2 style="margin:0;font-size:19px">${esc(r['名稱'])}</h2></div>
     <div class="small muted" style="margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">${esc(r['分類']||'')}${r['顏色']?' · '+wDot(r['顏色'],10)+esc(r['顏色']):''}${r['季節']?' · '+esc(r['季節']):''}${r['狀態']?' · '+esc(r['狀態']):''}</div>
-    ${clothPending(id)?`<div class="wpend"><b>這件還沒去背</b>：用美圖秀秀去背後存成 PNG，在相簿長按圖片「拷貝」，再到下面「長按這裡貼上」，會自動換成封面。</div>`:''}
+    ${clothPending(id)?`<div class="wpend"><b>這件還沒去背</b>：用美圖秀秀去背後存成 PNG，在相簿長按圖片「拷貝」，再到下面「長按這裡貼上」。新照片會<b>直接取代</b>這張原圖。</div>`:''}
     <div class="pgrid" id="wphGrid" style="border-radius:10px;margin-bottom:14px">${ps.map(p=>`<div class="ph" data-act="wph" data-id="${esc(p.ID)}">${p['縮圖']?`<img src="${esc(p['縮圖'])}" alt="">`:''}${p['說明']==='待去背'?'<span class="pendlab">待去背</span>':''}</div>`).join('')}
       <label class="addph" for="camInput" data-act="w-cam" data-id="${esc(id)}"><span style="font-size:20px;line-height:1">📷</span>拍照去背</label>
       <label class="addph" for="photoInput" data-act="w-addph" data-id="${esc(id)}"><span style="font-size:22px;line-height:1">＋</span>${ps.length?'再加照片':'加照片'}</label>
@@ -3383,7 +3383,7 @@ function wearPick(){
 function refreshWardSheet(kind, id){ if (!$('#sheet').classList.contains('show')) return; if (kind==='o') viewOutfit(id); else viewCloth(id); }
 async function uploadWardPhotos(id, files){
   const list = [...files]; if (!list.length) return; if (!WPH) WPH = [];
-  let okN = 0, err = '';
+  let okN = 0, err = '', replaced = false;
   for (let i = 0; i < list.length; i++) {
     try {
       const cat = (clothes().find(c=>c.ID===id)||{})['分類'] || '';
@@ -3395,11 +3395,18 @@ async function uploadWardPhotos(id, files){
       const ph = await call('uploadPhoto2', '衣櫃照片', {'衣物ID': id}, full.split(',')[1], thumb, (list[i].name || 'cloth').replace(/\.[^.]+$/,'') + (png ? '.png' : '.jpg'));
       const wasPend = clothPending(id);
       WPH.push(ph); if (png) fzCutStore(ph['檔案ID'], full);
-      if (png && wasPend) { WPH.forEach(x => { if (x['衣物ID']===id) x['說明'] = x.ID===ph.ID ? '封面' : (x['說明']==='封面' ? '' : x['說明']); }); call('setPhotoCover', '衣櫃照片', ph.ID, '衣物ID').catch(()=>{}); }
+      if (wasPend) {   /* 待去背的衣服：新照片直接取代原圖（設為封面，刪掉待去背的那張） */
+        const old = WPH.filter(x => x['衣物ID']===id && x['說明']==='待去背').map(x => x.ID);
+        WPH = WPH.filter(x => !old.includes(x.ID));
+        WPH.forEach(x => { if (x['衣物ID']===id) x['說明'] = x.ID===ph.ID ? '封面' : (x['說明']==='封面' ? '' : x['說明']); });
+        call('setPhotoCover', '衣櫃照片', ph.ID, '衣物ID').catch(()=>{});
+        old.forEach(pid => call('deletePhoto', pid, '衣櫃照片').catch(()=>{}));
+        if (old.length) replaced = true;
+      }
       okN++;
     } catch(e) { err = String(e && e.message || e).replace(/^Error:\s*/,''); break; }
   }
-  if (err) toast((okN ? `已上傳 ${okN} 張，第 ${okN+1} 張失敗：` : '上傳失敗：') + err, 9000); else if (okN) toast('照片已上傳 ✓', 1400);
+  if (err) toast((okN ? `已上傳 ${okN} 張，第 ${okN+1} 張失敗：` : '上傳失敗：') + err, 9000); else if (okN) toast(replaced ? '已用新照片取代原圖 ✓' : '照片已上傳 ✓', 1600);
   if (st.tab==='more' && st.more==='衣櫃') { const l = $('#ward-list'); if (l) l.innerHTML = wardList(); }
   if (CUR_CLOTH === id && $('#sheet').classList.contains('show')) viewCloth(id);
 }
